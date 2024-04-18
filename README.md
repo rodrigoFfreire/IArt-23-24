@@ -1,1 +1,1 @@
-# IA 2023/2024 _Artificial Intelligence_
+# IA 2023/2024 _(Artificial Intelligence)_
