@@ -1,2 +1,5 @@
 # Python venv
 .venv
+
+# Unit tests
+tests/
