@@ -92,7 +92,23 @@ class Board:
         respectivamente."""
         # TODO
         pass
-
+    
+    def print(self) -> str:
+        i = 0
+        out = ""
+        
+        # Loops through storage and builds the output
+        for piece_code in self.storage.tolist():
+            i += 1
+            out += code_to_piece[piece_code]
+            if i % self.size == 0:
+                if i == self.size ** 2:
+                    return out
+                out += '\n'
+            else:
+                out += '\t'
+        return out
+        
     @staticmethod
     def parse_instance():
         """Lê o test do standard input (stdin) que é passado como argumento
@@ -156,6 +172,3 @@ if __name__ == "__main__":
     # Usar uma técnica de procura para resolver a instância,
     # Retirar a solução a partir do nó resultante,
     # Imprimir para o standard output no formato indicado.
-    board = Board.parse_instance()
-    
-    print(board.print())
