@@ -78,20 +78,23 @@ class Board:
 
     def get_value(self, row: int, col: int) -> str:
         """Devolve o valor na respetiva posição do tabuleiro."""
-        # TODO
-        pass
+        return code_to_piece(self.storage[row * self.size + col])
 
     def adjacent_vertical_values(self, row: int, col: int) -> (str, str):
         """Devolve os valores imediatamente acima e abaixo,
         respectivamente."""
-        # TODO
-        pass
+        return (
+            code_to_piece[self.storage[(row - 1) * self.size + col]] if row > 0 else None,
+            code_to_piece[self.storage[(row + 1) * self.size + col]] if row < self.size - 1 else None
+        )
 
     def adjacent_horizontal_values(self, row: int, col: int) -> (str, str):
         """Devolve os valores imediatamente à esquerda e à direita,
         respectivamente."""
-        # TODO
-        pass
+        return (
+            code_to_piece[self.storage[row * self.size + col - 1]] if col > 0 else None,
+            code_to_piece[self.storage[row * self.size + col + 1]] if col < self.size - 1 else None
+        )
     
     def print(self) -> str:
         i = 0
