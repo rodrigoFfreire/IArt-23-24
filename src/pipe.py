@@ -78,21 +78,40 @@ class Board:
 
     def get_value(self, row: int, col: int) -> str:
         """Devolve o valor na respetiva posição do tabuleiro."""
-        # TODO
-        pass
+        return code_to_piece(self.storage[row * self.size + col])
 
     def adjacent_vertical_values(self, row: int, col: int) -> (str, str):
         """Devolve os valores imediatamente acima e abaixo,
         respectivamente."""
-        # TODO
-        pass
+        return (
+            code_to_piece[self.storage[(row - 1) * self.size + col]] if row > 0 else None,
+            code_to_piece[self.storage[(row + 1) * self.size + col]] if row < self.size - 1 else None
+        )
 
     def adjacent_horizontal_values(self, row: int, col: int) -> (str, str):
         """Devolve os valores imediatamente à esquerda e à direita,
         respectivamente."""
-        # TODO
-        pass
-
+        return (
+            code_to_piece[self.storage[row * self.size + col - 1]] if col > 0 else None,
+            code_to_piece[self.storage[row * self.size + col + 1]] if col < self.size - 1 else None
+        )
+    
+    def print(self) -> str:
+        i = 0
+        out = ""
+        
+        # Loops through storage and builds the output
+        for piece_code in self.storage.tolist():
+            i += 1
+            out += code_to_piece[piece_code]
+            if i % self.size == 0:
+                if i == self.size ** 2:
+                    return out
+                out += '\n'
+            else:
+                out += '\t'
+        return out
+        
     @staticmethod
     def parse_instance():
         """Lê o test do standard input (stdin) que é passado como argumento
@@ -156,6 +175,3 @@ if __name__ == "__main__":
     # Usar uma técnica de procura para resolver a instância,
     # Retirar a solução a partir do nó resultante,
     # Imprimir para o standard output no formato indicado.
-    board = Board.parse_instance()
-    
-    print(board.print())
