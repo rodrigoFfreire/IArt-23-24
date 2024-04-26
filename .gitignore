@@ -6,3 +6,6 @@ tests/
 
 # Visualizer
 visualizer/
+
+# IDE stuff
+.vscode
