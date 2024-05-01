@@ -1,5 +1,8 @@
-# Python venv
+# Python venv, pycache and auxiliary scripts
 .venv
+__pycache__
+gen.py
+input.txt
 
 # Unit tests
 tests/
