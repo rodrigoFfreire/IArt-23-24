@@ -72,6 +72,7 @@ class PipeManiaState:
 
 class Board:
     """Representação interna de um tabuleiro de PipeMania."""
+
     def __init__(self, size: int, storage: np.array) -> None:
         self.size: int = size
         self.storage: np.array = storage
@@ -95,11 +96,11 @@ class Board:
             code_to_piece[self.storage[row * self.size + col - 1]] if col > 0 else None,
             code_to_piece[self.storage[row * self.size + col + 1]] if col < self.size - 1 else None
         )
-    
+
     def print(self) -> str:
         i = 0
         out = ""
-        
+
         # Loops through storage and builds the output
         for piece_code in self.storage.tolist():
             i += 1
@@ -111,26 +112,25 @@ class Board:
             else:
                 out += '\t'
         return out
-        
+
     @staticmethod
     def parse_instance():
         """Lê o test do standard input (stdin) que é passado como argumento
         e retorna uma instância da classe Board.
         """
         lines = stdin.readlines()
-        
+
         # Stores every piece of the input in a np.array
         storage = np.array('\t'.join(lines).replace('\n', '').split('\t'))
-            
+
         # Converts the visual representation of all pieces into its interal representation
         storage = np.vectorize(Board.convert_piece)(storage)
-            
+
         return Board(int(math.sqrt(len(storage))), storage)
 
-    @staticmethod
     def convert_piece(piece: str) -> int:
         return piece_to_code[piece]
-    
+
     # TODO: outros metodos da classe
 
 
@@ -175,3 +175,4 @@ if __name__ == "__main__":
     # Usar uma técnica de procura para resolver a instância,
     # Retirar a solução a partir do nó resultante,
     # Imprimir para o standard output no formato indicado.
+    pass
