@@ -64,20 +64,16 @@ class Board:
         )
 
     def print(self) -> str:
-        i = 0
-        out = ""
-
         # Loops through storage and builds the output
-        for piece in self.storage.tolist():
-            i += 1
-            out += piece
-            if i % self.size == 0:
-                if i == self.size ** 2:
-                    return out
-                out += '\n'
+        out = []
+        for i, piece in enumerate(self.storage):
+            out.append(piece)
+            if ((i + 1) % self.size != 0):
+                out.append('\t')
             else:
-                out += '\t'
-        return out
+                out.append('\n')
+
+        return "".join(out)
 
     @staticmethod
     def parse_instance():
@@ -86,11 +82,8 @@ class Board:
         """
         lines = stdin.readlines()
 
-        # Stores every piece of the input in a np.array
-        storage = np.array('\t'.join(lines).replace('\n', '').split('\t'))
-
-        # Converts the visual representation of all pieces into its interal representation
-        # storage = np.vectorize(Board.convert_piece)(storage)
+        # Reads every piece into a list
+        storage = '\t'.join(lines).replace('\n', '').split('\t')
 
         return Board(int(math.sqrt(len(storage))), storage)
 
@@ -141,4 +134,8 @@ if __name__ == "__main__":
     # Usar uma técnica de procura para resolver a instância,
     # Retirar a solução a partir do nó resultante,
     # Imprimir para o standard output no formato indicado.
-    pass
+    board = Board.parse_instance()
+    print("Parsed Instance")
+
+    board.print()
+    print("Board printed")
