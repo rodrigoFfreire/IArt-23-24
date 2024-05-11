@@ -8,6 +8,7 @@
 
 import math
 import numpy as np
+import copy
 
 from sys import stdin
 from typing import Type
@@ -96,8 +97,7 @@ class Board:
 class PipeMania(Problem):
     def __init__(self, board: Board):
         """O construtor especifica o estado inicial."""
-        # TODO
-        pass
+        self.board = board
 
     def actions(self, state: PipeManiaState):
         """Retorna uma lista de ações que podem ser executadas a
@@ -110,8 +110,12 @@ class PipeMania(Problem):
         'state' passado como argumento. A ação a executar deve ser uma
         das presentes na lista obtida pela execução de
         self.actions(state)."""
-        # TODO
-        pass
+        
+        new_board: Board = copy.deepcopy(state.board)                 # alterations made to a deep copy are not propagated to the original object
+        index, new_value = action
+        new_board.storage[index] = new_value
+
+        return PipeManiaState(new_board)
 
     def goal_test(self, state: PipeManiaState):
         """Retorna True se e só se o estado passado como argumento é
