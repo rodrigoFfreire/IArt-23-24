@@ -440,7 +440,10 @@ class PipeMania(Problem):
         das presentes na lista obtida pela execução de
         self.actions(state)."""
         # TODO
-        pass
+        board = state.board.copy()
+        board.change_piece(*action)
+        
+        return PipeManiaState(board)
 
     def goal_test(self, state: PipeManiaState):
         """Retorna True se e só se o estado passado como argumento é
