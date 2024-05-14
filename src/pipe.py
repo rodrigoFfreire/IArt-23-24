@@ -126,7 +126,7 @@ class Board:
             out.append(byte_to_piece[piece & 0x7F]) # Remove lock bit
             if ((i + 1) % self.size != 0):
                 out.append('\t')
-            else:
+            elif ((i + 1) % self.size == 0) and i != self.size ** 2 - 1:
                 out.append('\n')
 
         return "".join(out)
