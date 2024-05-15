@@ -342,8 +342,7 @@ class PipeMania(Problem):
             if w_c:
                 if piece_high == 0b0010_0000: # V piece
                     lock_actions.append((i, 0x80 | piece_high | self.lshift(w_c, 4, 2)))
-                    continue
-                if piece_high == 0: # F piece
+                elif piece_high == 0: # F piece
                     v_wall = w_c & 0b0101
                     h_wall = w_c & 0b1010
                     
