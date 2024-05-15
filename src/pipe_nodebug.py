@@ -324,7 +324,7 @@ class PipeMania(Problem):
         super().__init__(initial)
         self.visited = []
         
-    def generate_lockable_action(self, i, piece, board: Board):
+    def generate_lockable_action(self, i, piece, board):
         piece_high = piece & 0xF0
         piece_low = piece & 0xF
         
@@ -393,20 +393,6 @@ class PipeMania(Problem):
                 rev_final_dir = final_dir ^ 0xF
                 if rev_final_dir != 0 and (rev_final_dir & (rev_final_dir - 1)) == 0:
                     return (i, 0x80 | piece_high | final_dir)
-            elif piece_high == 0b0010_0000: # V Piece
-                pass # TODO
-            elif piece_high == 0: # F piece
-                final_dir = 0
-                for k in board.direction_index_offset(0xF): # Get all directions
-                    rev_k1 = self.lshift(k[1], 4, 2)
-                    if board.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1):
-                        return (i, 0x80 | piece_high | k[1])
-                    elif board.storage[i + k[0]] & (0x80 | rev_k1) == 0x80:
-                        final_dir |= k[1]
-                
-                rev_final_dir = final_dir ^ 0xF
-                if rev_final_dir != 0 and (rev_final_dir & (rev_final_dir - 1)) == 0:
-                    return (i, 0x80 | piece_high | rev_final_dir)
                 
         return None         
         
@@ -435,24 +421,12 @@ class PipeMania(Problem):
         board: Board = state.board
         actions = []
         
-        print("Expanding state:", state.id)
-        print(board.print())
-        
         if self.isVisited(board):
             return actions
         
         self.visited.append(board.copy())
         
         actions = self.lockable_actions(state)
-        print("Locks:")
-        out = []
-        for i in range(len(board.storage)):
-            out.append(str(board.isLocked(i))) # Remove lock bit
-            if ((i + 1) % board.size != 0):
-                out.append('\t')
-            else:
-                out.append('\n')
-        print("".join(out))
         
         if not actions: # Generate unfiltered actions if no lockable available
             for i, piece in enumerate(board.storage):
@@ -479,8 +453,7 @@ class PipeMania(Problem):
                 if copy == b:
                     actions.remove(action)
                     break
-              
-        print(actions)
+
         return actions
         
 
@@ -548,11 +521,8 @@ if __name__ == "__main__":
     # Retirar a solução a partir do nó resultante,
     # Imprimir para o standard output no formato indicado.
     board = Board.parse_instance()
-    print("Done")
     
     problem = PipeMania(board)
     
     goal_node = depth_first_tree_search(problem)
-    
-    print("Is goal?", problem.goal_test(goal_node.state))
     print(goal_node.state.board.print())

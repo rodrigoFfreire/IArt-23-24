@@ -1,0 +1,75 @@
+Done
+Expanding state: 0
+FB	VC	VD
+BC	BB	LV
+FB	FB	FE
+Locks:
+False	False	False
+False	False	True
+False	False	False
+
+[(2, 169), (3, 151), (6, 132), (7, 132), (8, 132)]
+Expanding state: 5
+FB	VC	VD
+BC	BB	LV
+FB	FB	FC
+Locks:
+False	False	False
+False	False	True
+False	False	True
+
+[(2, 169), (3, 151), (4, 157), (6, 132), (7, 132)]
+Expanding state: 10
+FB	VC	VD
+BC	BB	LV
+FB	FC	FC
+Locks:
+False	False	False
+False	False	True
+False	True	True
+
+[(2, 169), (3, 151), (4, 157), (6, 132)]
+Expanding state: 14
+FB	VC	VD
+BC	BB	LV
+FC	FC	FC
+Locks:
+False	False	False
+False	False	True
+True	True	True
+
+[(2, 169), (3, 151), (4, 157)]
+Expanding state: 17
+FB	VC	VD
+BC	BE	LV
+FC	FC	FC
+Locks:
+False	False	False
+False	True	True
+True	True	True
+
+[(2, 169), (3, 151)]
+Expanding state: 19
+FB	VC	VD
+BD	BE	LV
+FC	FC	FC
+Locks:
+True	False	False
+True	True	True
+True	True	True
+
+[(1, 163), (2, 169)]
+Expanding state: 21
+FB	VC	VE
+BD	BE	LV
+FC	FC	FC
+Locks:
+True	False	True
+True	True	True
+True	True	True
+
+[(1, 163)]
+Is goal? True
+FB	VB	VE
+BD	BE	LV
+FC	FC	FC
