@@ -251,7 +251,7 @@ class Board:
                     k = -1
                     d = 0b1010_1000
                         
-                if self.storage[i + k] & 0xF0 == 0 or (self.storage[i + k] == (d | piece_low)):
+                if self.storage[i + k] & 0x30 == 0 or (self.storage[i + k] == (d | piece_low)):
                     self.lockPiece(i)
                     return
             return 
@@ -344,17 +344,20 @@ class PipeMania(Problem):
                     lock_actions.append((i, 0x80 | piece_high | self.lshift(w_c, 4, 2)))
                     continue
                 if piece_high == 0: # F piece
-                    k_v = board.direction_index_offset(self.lshift(w_c & 0b0101, 4, 2))[0]
-                    k_h = board.direction_index_offset(self.lshift(w_c & 0b1010, 4, 2))[0]
+                    v_wall = w_c & 0b0101
+                    h_wall = w_c & 0b1010
                     
-                    if board.storage[i + k_h[0]] & 0xF0 == 0 or \
+                    k_v = board.direction_index_offset(self.lshift(v_wall, 4, 2))[0]
+                    k_h = board.direction_index_offset(self.lshift(h_wall, 4, 2))[0]
+                    
+                    if board.storage[i + k_h[0]] & 0x30 == 0 or \
                         board.storage[i + k_h[0]] == (0xA0 | k_h[1] | k_v[1]) or \
-                        board.storage[i + k_v[0]] & (w_c & 0b0101):
+                        board.storage[i + k_v[0]] & (0x80 | v_wall) == (0x80 | v_wall):
                             lock_actions.append((i, 0x80 | piece_high | k_v[1]))
                     
-                    elif board.storage[i + k_v[0]] & 0xF0 == 0 or \
+                    elif board.storage[i + k_v[0]] & 0x30 == 0 or \
                         board.storage[i + k_v[0]] == (0xA0 | k_h[1] | k_v[1]) or \
-                        board.storage[i + k_h[0]] & (w_c & 0b1010):
+                        board.storage[i + k_h[0]] & (0x80 | h_wall) == (0x80 | h_wall):
                             lock_actions.append((i, 0x80 | piece_high | k_h[1]))
                 continue
             w_e = board.isEdge(i)
@@ -374,9 +377,15 @@ class PipeMania(Problem):
                     elif board.storage[i + k[0]] & (0x80 | rev_k1) == 0x80 or \
                         board.storage[i - k[0]] & (0x80 | k[1]) == (0x80 | k[1]):
                         lock_actions.append((i, 0x80 | piece_high | self.lshift(w_e, 4, 2) | rev_k1))
-                elif piece_high == 0: # F piece (WIP)
-                    pass
-                    
+                elif piece_high == 0: # F piece
+                    final_dir = w_e
+                    for k in board.direction_index_offset(w_e ^ 0xF):
+                        rev_k1 = self.lshift(k[1], 4, 2)
+                        if board.storage[i + k[0]] & 0x30 == 0 or board.storage[i + k[0]] & (0x80 | rev_k1) == 0x80:
+                            final_dir |= k[1]
+                    final_dir ^= 0xF # Invert the bits
+                    if final_dir != 0 and (final_dir & (final_dir - 1)) == 0: # Check if only 1 bit is on
+                        lock_actions.append((i, 0x80 | piece_high | final_dir))
         return lock_actions
     
     def actions(self, state: PipeManiaState):
