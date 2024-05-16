@@ -8,6 +8,7 @@
 
 import math
 import numpy as np
+import random
 
 from sys import stdin
 from search import (
@@ -19,7 +20,7 @@ from search import (
     greedy_search,
     recursive_best_first_search,
 )
-
+  
     
 
 # High nibble stores lock bit (1st bit) and piece type (F -> 00, B -> 01, V -> 10, L -> 11) in the last 2 bits.
@@ -216,7 +217,7 @@ class Board:
         return ((x << amount) % (1 << size)) | (x >> (size - amount))
            
             
-    def find_locks(self, i):
+    def find_locks(self, i): # Rewrite this garbage TODO
         piece = self.storage[i]
         
         piece_high = piece & 0xF0
@@ -264,43 +265,86 @@ class Board:
             elif piece_high == 0b0010_0000: # V pieces
                 p_v = piece_low & 0b0101
                 p_h = piece_low & 0b1010
-                rev_p = self.lshift(piece_low, 4, 2)
                 k = 0
                 
                 if i % self.size == 0 or (i + 1) % self.size == 0:
-                    k = self.direction_index_offset(p_v)[0][0]
+                    k = self.direction_index_offset(p_v)[0]
                 else:
-                    k = self.direction_index_offset(p_h)[0][0]
+                    k = self.direction_index_offset(p_h)[0]
                     
-                if self.isLocked(i + k) and (self.storage[i + k] ^ rev_p) & rev_p == rev_p & 0b0101 or \
-                    self.isLocked(i - k) and not (self.storage[i - k] & (rev_p & 0b0101 | p_h)):
+                rev_k1 = self.lshift(k[1], 4, 2)
+                if self.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1) or \
+                    self.storage[i - k[0]] & (0x80 | k[1]) == 0x80:
                         self.lockPiece(i)
             elif not piece_high: # F pieces
-                k = adjs_indeces[0][0]
-                m = self.lshift(piece_low, 4, 2) | w
+                k = adjs_indeces[0]
+                rev_k1 = self.lshift(piece_low, 4, 2)
+                non_k = self.direction_index_offset((piece_low | w) ^ 0xF)
                 
-                if self.isLocked(i + k) and (self.storage[i + k] ^ m) & m == w:
+                if self.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1):
                     self.lockPiece(i)
-                else:
-                    for j in a.get((piece_low | w) ^ 0xF):
-                        k_d = self.direction_index_offset(j)[0][0]
-                        if self.lshift(j, 4, 2) == w: #Center dir
-                            if self.storage[i + k_d] & 0xF != 0 and not (self.storage[i + k_d] & 0x88 == 0x80):
-                                return
-                        else: # Edge dir
-                            if self.storage[i + k_d] & 0xF != 0 and not (self.storage[i + k_d] & 0xF == ((piece_low | w) ^ 0xF)):
-                                return
-                    # Lock if it completed for loop
-                    self.lockPiece(i)
+                elif (self.storage[i + non_k[0][0]] & 0x30 == 0 or \
+                    self.storage[i + non_k[0][0]] & (0x80 | self.lshift(non_k[0][1], 4, 2)) == 0x80) and \
+                    (self.storage[i + non_k[1][0]] & 0x30 == 0 or \
+                    self.storage[i + non_k[1][0]] & (0x80 | self.lshift(non_k[1][1], 4, 2)) == 0x80):
+                        self.lockPiece(i)
         else:
-            y = False
-            for k in adjs_indeces:
-                if not self.isLocked(i + k[0]) or not (self.storage[i + k[0]] & k[1]):
-                    y = False
-                    break
-                y = True
-            if y:
-                self.lockPiece(i)
+            if piece_high == 0b0011_0000: # L piece
+                k = self.direction_index_offset(piece_low)
+                rev_k = self.direction_index_offset(self.lshift(piece_low, 4, 1))
+                
+                if self.storage[i + k[0][0]] & (0x80 | k[1][1]) == (0x80 | k[1][1]) or \
+                    self.storage[i + k[1][0]] & (0x80 | k[0][1]) == (0x80 | k[0][1]):
+                        self.lockPiece(i)
+                
+                elif self.storage[i + rev_k[0][0]] & (0x80 | rev_k[1][1]) == 0x80 or \
+                    self.storage[i + rev_k[1][0]] & (0x80 | rev_k[0][1]) == 0x80:
+                        self.lockPiece(i)
+            elif piece_high == 0b0001_0000: # B Piece
+                k = self.direction_index_offset(piece_low)
+                non_k = self.direction_index_offset(piece_low ^ 0xF)
+                rev_non_k1 = self.lshift(non_k[0][1], 4, 2)
+                
+                rev_k01 = self.lshift(k[0][1], 4, 2)
+                rev_k11 = self.lshift(k[1][1], 4, 2)
+                rev_k21 = self.lshift(k[2][1], 4, 2)
+                
+                if self.storage[i + non_k[0][0]] & (0x80 | rev_non_k1) == 0x80:
+                    self.lockPiece(i)
+                elif self.storage[i + k[0][0]] & (0x80 | rev_k01) == (0x80 | rev_k01) and \
+                    self.storage[i + k[1][0]] & (0x80 | rev_k11) == (0x80 | rev_k11) and \
+                    self.storage[i + k[2][0]] & (0x80 | rev_k21) == (0x80 | rev_k21):
+                        self.lockPiece(i)
+            elif piece_high == 0b0010_0000: # V piece
+                k = self.direction_index_offset(piece_low)
+                non_k = self.direction_index_offset(piece_low ^ 0xF)
+                
+                rev_k01 = self.lshift(k[0][1], 4, 2)
+                rev_k11 = self.lshift(k[1][1], 4, 2)
+                
+                if self.storage[i + k[0][0]] & (0x80 | rev_k01) == (0x80 | rev_k01) and \
+                    (self.storage[i + k[1][0]] & (0x80 | rev_k11) == (0x80 | rev_k11) or self.storage[i - k[1][0]] & (0x80 | k[1][1]) == 0x80):
+                        self.lockPiece(i)
+                   
+                elif (self.storage[i + k[1][0]] & (0x80 | rev_k11) == (0x80 | rev_k11)) and \
+                    (self.storage[i + k[0][0]] & (0x80 | rev_k01) == (0x80 | rev_k01) or self.storage[i - k[0][0]] & (0x80 | k[0][1]) == 0x80):
+                       self.lockPiece(i)
+                elif self.storage[i - k[0][0]] & (0x80 | k[0][1]) == 0x80 and \
+                    self.storage[i - k[1][0]] & (0x80 | k[1][1]) == 0x80:
+                        self.lockPiece(i)
+            elif piece_high == 0: # F Piece
+                rev_k1_c = self.lshift(piece_low, 4, 2)
+                
+                non_k = self.direction_index_offset(piece_low ^ 0xF)
+                
+                if self.storage[i + adjs_indeces[0][0]] & (0x80 | rev_k1_c) == (0x80 | rev_k1_c):
+                    self.lockPiece(i)
+                elif (self.storage[i + non_k[0][0]] & 0x30 == 0 or self.storage[i + non_k[0][0]] & (0x80 | self.lshift(non_k[0][1], 4, 2)) == 0x80) and \
+                    (self.storage[i + non_k[1][0]] & 0x30 == 0 or self.storage[i + non_k[1][0]] & (0x80 | self.lshift(non_k[1][1], 4, 2)) == 0x80) and \
+                    (self.storage[i + non_k[2][0]] & 0x30 == 0 or self.storage[i + non_k[2][0]] & (0x80 | self.lshift(non_k[2][1], 4, 2)) == 0x80):
+                        self.lockPiece(i)
+            
+                
     
     @staticmethod
     def parse_instance():
@@ -355,7 +399,7 @@ class PipeMania(Problem):
                 return (i, 0x80 | piece_high | (self.lshift(w_e, 4, 1) | self.rshift(w_e, 4, 1)))
             elif piece_high == 0b0001_0000: # B piece
                 return (i, 0x80 | piece_high | (w_e ^ 0xF))
-            elif piece_high == 0b0010_0000: # V piece
+            elif piece_high == 0b0010_0000: # V piece (TODO Apparently fucking up on 4x4)
                 k = board.direction_index_offset(self.lshift(w_e, 4, 1))[0]
                 rev_k1 = self.lshift(k[1], 4, 2)
                 
@@ -372,13 +416,16 @@ class PipeMania(Problem):
                     rev_k1 = self.lshift(k[1], 4, 2)
                     if board.storage[i + k[0]] & 0x30 == 0 or board.storage[i + k[0]] & (0x80 | rev_k1) == 0x80:
                         final_dir |= k[1]
+                    elif board.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1):
+                        return (i, 0x80 | piece_high | k[1])
                 final_dir ^= 0xF # Invert the bits
                 if final_dir != 0 and (final_dir & (final_dir - 1)) == 0: # Check if only 1 bit is on
                     return (i, 0x80 | piece_high | final_dir)
         else: # Center Pieces
             if piece_high == 0b0011_0000: # L Piece
                 k1, k2 = board.direction_index_offset(self.lshift(piece_low, 4, 1))
-                if board.storage[i + k1[0]] & (0x80 | k2[1]) == (0x80 | k2[1]) and \
+                
+                if board.storage[i + k1[0]] & (0x80 | k2[1]) == (0x80 | k2[1]) or \
                     board.storage[i + k2[0]] & (0x80 | k1[1]) == (0x80 | k1[1]):
                         return (i, 0x80 | piece_high | k1[1] | k2[1])
             elif piece_high == 0b0001_0000: # B Piece
@@ -394,14 +441,24 @@ class PipeMania(Problem):
                 if rev_final_dir != 0 and (rev_final_dir & (rev_final_dir - 1)) == 0:
                     return (i, 0x80 | piece_high | final_dir)
             elif piece_high == 0b0010_0000: # V Piece
-                pass # TODO
+                y = n = 0
+                for k in board.direction_index_offset(0xF): # Get all directions
+                    rev_k1 = self.lshift(k[1], 4, 2)
+                    if board.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1):
+                        y |= k[1]
+                    elif board.storage[i + k[0]] & (0x80 | rev_k1) == 0x80:
+                        n |= k[1]
+                r = y | self.lshift(n, 4, 2)
+                if r != 0 and r % 3 == 0: # Checks if it has 2 adjacent directions (valid v piece)
+                    return (i, 0x80 | piece_high | r)
             elif piece_high == 0: # F piece
                 final_dir = 0
                 for k in board.direction_index_offset(0xF): # Get all directions
                     rev_k1 = self.lshift(k[1], 4, 2)
                     if board.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1):
                         return (i, 0x80 | piece_high | k[1])
-                    elif board.storage[i + k[0]] & (0x80 | rev_k1) == 0x80:
+                    elif board.storage[i + k[0]] & (0x80 | rev_k1) == 0x80 or \
+                        board.storage[i + k[0]] & 0x30 == 0:
                         final_dir |= k[1]
                 
                 rev_final_dir = final_dir ^ 0xF
@@ -438,12 +495,13 @@ class PipeMania(Problem):
         print("Expanding state:", state.id)
         print(board.print())
         
-        if self.isVisited(board):
-            return actions
+        #if self.isVisited(board):
+         #   return actions
         
-        self.visited.append(board.copy())
+        #self.visited.append(board.copy())
         
         actions = self.lockable_actions(state)
+        
         print("Locks:")
         out = []
         for i in range(len(board.storage)):
@@ -471,15 +529,14 @@ class PipeMania(Problem):
                     a = self.lshift(piece_low, 4, 1)
                     actions.append((i, piece_high | a))
 
-        for action in actions:
+        """ for action in actions:
             copy = state.board.copy()
             copy.change_piece(*action)
             
             for b in self.visited:
                 if copy == b:
                     actions.remove(action)
-                    break
-              
+                    break """ # Not sure abou this
         print(actions)
         return actions
         
