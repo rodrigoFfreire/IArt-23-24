@@ -368,7 +368,8 @@ class PipeMania(Problem):
         super().__init__(initial)
         self.visited = []
         
-    def generate_lockable_action(self, i, piece, board: Board):
+    def generate_lockable_action(self, i, board: Board):
+        piece = board.storage[i]
         piece_high = piece & 0xF0
         piece_low = piece & 0xF
         
@@ -469,9 +470,9 @@ class PipeMania(Problem):
         
     def lockable_actions(self, state: PipeManiaState):
         board = state.board
-        lock_actions = []
+        #lock_actions = []
         
-        for i, piece in enumerate(board.storage):
+        for i in range(len(board.storage)):
             if board.isLocked(i):
                 continue
             
@@ -480,11 +481,11 @@ class PipeMania(Problem):
             if board.isLocked(i):
                 continue
             
-            action = self.generate_lockable_action(i, piece, board)
+            action = self.generate_lockable_action(i, board)
             if action:
-                lock_actions.append(action)
+                return (action, )
             
-        return lock_actions
+        return None
     
     def actions(self, state: PipeManiaState):
         """Retorna uma lista de ações que podem ser executadas a
@@ -495,12 +496,12 @@ class PipeMania(Problem):
         print("Expanding state:", state.id)
         print(board.print())
         
-        #if self.isVisited(board):
-         #   return actions
+        if self.isVisited(board):
+            return actions
         
-        #self.visited.append(board.copy())
+        self.visited.append(board.copy())
         
-        actions = self.lockable_actions(state)
+        lock_action = self.lockable_actions(state)
         
         print("Locks:")
         out = []
@@ -512,7 +513,8 @@ class PipeMania(Problem):
                 out.append('\n')
         print("".join(out))
         
-        if not actions: # Generate unfiltered actions if no lockable available
+        if lock_action is None: # Generate unfiltered actions if no lockable available
+            print("GENERATING RANDOM ACTTIONS")
             for i, piece in enumerate(board.storage):
                 if board.isLocked(i):
                     continue
@@ -524,11 +526,13 @@ class PipeMania(Problem):
                     a = self.lshift(piece_low, 4, 1)
                     b = self.lshift(a, 4, 1)
                     c = self.lshift(b, 4, 1)
-                    actions.extend([(i, piece_high | a), (i, piece_high | b), (i, piece_high | c)])
+                    
+                    actions.extend([(i, 0x80 | piece), (i, 0x80 | piece_high | a), (i, 0x80 | piece_high | b), (i, 0x80 | piece_high | c)])
                 else:
                     a = self.lshift(piece_low, 4, 1)
-                    actions.append((i, piece_high | a))
-
+                    actions.extend([(i, 0x80 | piece), (i, 0x80 | piece_high | a)])
+        else:
+            actions = lock_action
         """ for action in actions:
             copy = state.board.copy()
             copy.change_piece(*action)
@@ -536,7 +540,7 @@ class PipeMania(Problem):
             for b in self.visited:
                 if copy == b:
                     actions.remove(action)
-                    break """ # Not sure abou this
+                    break """
         print(actions)
         return actions
         
