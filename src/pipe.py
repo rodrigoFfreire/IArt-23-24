@@ -234,10 +234,11 @@ class Board:
             elif not piece_high: # F pieces
                 k = d = 0
                 adj_i = i + adjs_indeces[0][0]
+                rev_k = self.lshift(adjs_indeces[0][1], 4, 2)
                 
-                if self.isLocked(adj_i) and (self.storage[adj_i] & piece_low): # connecting pieces
+                if self.storage[adj_i] & (0x80 | rev_k) == 0x80 | rev_k: # connecting piece
                     self.lockPiece(i)
-                    return
+                    return 
                 
                 if adj_i > 0 and adj_i < self.size - 1: # Non connecting
                     k = self.size
@@ -400,10 +401,9 @@ class PipeMania(Problem):
                 return (i, 0x80 | piece_high | (self.lshift(w_e, 4, 1) | self.rshift(w_e, 4, 1)))
             elif piece_high == 0b0001_0000: # B piece
                 return (i, 0x80 | piece_high | (w_e ^ 0xF))
-            elif piece_high == 0b0010_0000: # V piece (TODO Apparently fucking up on 4x4)
+            elif piece_high == 0b0010_0000: # V piece
                 k = board.direction_index_offset(self.lshift(w_e, 4, 1))[0]
                 rev_k1 = self.lshift(k[1], 4, 2)
-                
                 if board.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1) or \
                     board.storage[i - k[0]] & (0x80 | k[1]) == 0x80:
                     return (i, 0x80 | piece_high | self.lshift(w_e, 4, 2) | k[1])
@@ -475,12 +475,12 @@ class PipeMania(Problem):
         for i in range(len(board.storage)):
             if board.isLocked(i):
                 continue
-            
             board.find_locks(i)
-            
+        
+        for i in range(len(board.storage)):
             if board.isLocked(i):
                 continue
-            
+    
             action = self.generate_lockable_action(i, board)
             if action:
                 return (action, )
@@ -495,11 +495,6 @@ class PipeMania(Problem):
         
         print("Expanding state:", state.id)
         print(board.print())
-        
-        if self.isVisited(board):
-            return actions
-        
-        self.visited.append(board.copy())
         
         lock_action = self.lockable_actions(state)
         
