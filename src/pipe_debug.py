@@ -9,6 +9,7 @@
 import math
 import numpy as np
 import random
+from collections import deque
 
 from sys import stdin
 from search import (
@@ -68,13 +69,27 @@ a = {
     0b0101: (0b0100, 0b0001),
 }
 
+DIR_LEFT = 0b1000
+DIR_UP = 0b0100
+DIR_RIGHT = 0b0010
+DIR_DOWN = 0b0001
+
+PIECE_F = 0b0000_0000
+PIECE_B = 0b0001_0000
+PIECE_V = 0b0010_0000
+PIECE_L = 0b0011_0000
+
+LOCK_MASK = 0b1000_0000
+PIECE_MASK = 0b0011_0000
+
 
 class PipeManiaState:
     state_id = 0
 
-    def __init__(self, board):
+    def __init__(self, board, last_index):
         self.board: Board = board
         self.id = PipeManiaState.state_id
+        self.last_index = last_index
         PipeManiaState.state_id += 1
 
     def __lt__(self, other):
@@ -86,39 +101,32 @@ class PipeManiaState:
 class Board:
     """Representação interna de um tabuleiro de PipeMania."""
 
-    def __init__(self, size: int, storage: list) -> None:
+    def __init__(self, size: int, storage: list, exhausted) -> None:
         self.size = size
         self.storage = storage
+        self.exhausted = exhausted
 
-    def get_value(self, row: int, col: int) -> str:
+    def get_value(self, index) -> str:
         """Devolve o valor na respetiva posição do tabuleiro."""
-        return byte_to_piece(self.storage[row * self.size + col])
+        if index < 0 or index >= self.size ** 2:
+            return None
+        return self.storage[index]
 
-    def adjacent_vertical_values(self, row: int, col: int, index = -1) -> (str, str):
+    def adjacent_vertical_values(self, index: int):
         """Devolve os valores imediatamente acima e abaixo,
         respectivamente."""
-        if index != -1:
-            return (
+        return (
                 self.storage[index - self.size] if index >= self.size else None,
                 self.storage[index + self.size] if (self.size ** 2) - index > self.size else None
             )
-        return (
-            self.storage[(row - 1) * self.size + col] if row > 0 else None,
-            self.storage[(row + 1) * self.size + col] if row < self.size - 1 else None
-        )
 
-    def adjacent_horizontal_values(self, row: int, col: int, index = -1) -> (str, str):
+    def adjacent_horizontal_values(self, index: int):
         """Devolve os valores imediatamente à esquerda e à direita,
         respectivamente."""
-        if index != -1:
-            return (
+        return (
                 self.storage[index - 1] if index % self.size != 0 else None,
                 self.storage[index + 1] if (index + 1) % self.size != 0 else None
             )
-        return (
-            self.storage[row * self.size + col - 1] if col > 0 else None,
-            self.storage[row * self.size + col + 1] if col < self.size - 1 else None
-        )
 
     def print(self) -> str:
         # Loops through storage and builds the output
@@ -133,24 +141,28 @@ class Board:
         return "".join(out)
     
     def copy(self):
-        return Board(self.size, self.storage.copy())
+        return Board(self.size, self.storage.copy(), self.exhausted)
 
     def change_piece(self,index, new_piece):
-        if not self.isLocked(index):
-            self.storage[index] = new_piece
+        self.storage[index] = new_piece
         
     def __eq__(self, other) -> bool:
         return self.storage == other.storage
     
-    def lockPiece(self, index):
-        self.storage[index] |= 0x80
+    def lockPiece(self, index, search_bad):
+        if not search_bad:
+            self.storage[index] |= 0x80
+        return True
+    
+    def unlockPiece(self, index):
+        self.storage[index] ^ 0x80
         
     def isLocked(self, index):
         return True if self.storage[index] & 0x80 else False
         
-    def get_piece_adjs(self, index, piece):
-        h_adjs = self.adjacent_horizontal_values(-1, -1, index)
-        v_adjs = self.adjacent_vertical_values(-1, -1, index)
+    def getAdjacentPieces(self, index, piece):
+        h_adjs = self.adjacent_horizontal_values(index)
+        v_adjs = self.adjacent_vertical_values(index)
         
         adjs = []
         if piece & 0b1000:
@@ -215,93 +227,71 @@ class Board:
         
     def lshift(self, x, size, amount):
         return ((x << amount) % (1 << size)) | (x >> (size - amount))
-           
-            
-    def find_locks(self, i): # Rewrite this garbage TODO
+                        
+    def isLockable(self, i, search_bad):
         piece = self.storage[i]
         
         piece_high = piece & 0xF0
         piece_low = piece & 0xF
         adjs_indeces = self.direction_index_offset(piece_low)
         
-        if None in self.get_piece_adjs(i, piece):
+        # If a piece has ends facing the border then its definitely not lockable
+        if None in self.getAdjacentPieces(i, piece):
             return
         
-        if self.isCorner(i):
-            if piece_high == 0b0010_0000: # V pieces
-                self.lockPiece(i)
-                return
-            elif not piece_high: # F pieces
-                k = d = 0
-                adj_i = i + adjs_indeces[0][0]
-                rev_k = self.lshift(adjs_indeces[0][1], 4, 2)
-                
-                if self.storage[adj_i] & (0x80 | rev_k) == 0x80 | rev_k: # connecting piece
-                    self.lockPiece(i)
-                    return 
-                
-                if adj_i > 0 and adj_i < self.size - 1: # Non connecting
-                    k = self.size
-                    d = 0b1010_0001
-                elif adj_i > self.size ** 2 - self.size and adj_i < self.size ** 2:
-                    k = -self.size
-                    d = 0b1010_0100
-                elif adj_i % self.size == 0:
-                    k = 1
-                    d = 0b1010_0010
-                elif (adj_i + 1) % self.size == 0:
-                    k = -1
-                    d = 0b1010_1000
-                        
-                if self.storage[i + k] & 0x30 == 0 or (self.storage[i + k] == (d | piece_low)):
-                    self.lockPiece(i)
-                    return
-            return 
-        w = self.isEdge(i)   
-        if w:
-            if piece_high == 0b0011_0000: # L pieces
-                self.lockPiece(i)
-            elif piece_high == 0b0001_0000: # B pieces
-                self.lockPiece(i)
-            elif piece_high == 0b0010_0000: # V pieces
-                p_v = piece_low & 0b0101
-                p_h = piece_low & 0b1010
-                k = 0
-                
-                if i % self.size == 0 or (i + 1) % self.size == 0:
-                    k = self.direction_index_offset(p_v)[0]
-                else:
-                    k = self.direction_index_offset(p_h)[0]
-                    
+        w_corner = self.isCorner(i)
+        if w_corner:
+            if piece_high == PIECE_V:
+                return self.lockPiece(i, search_bad)
+            elif piece_high == PIECE_F:
+                k = self.direction_index_offset(piece_low)[0]
                 rev_k1 = self.lshift(k[1], 4, 2)
-                if self.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1) or \
-                    self.storage[i - k[0]] & (0x80 | k[1]) == 0x80:
-                        self.lockPiece(i)
-            elif not piece_high: # F pieces
+                if self.storage[i + k[0]] & (LOCK_MASK | rev_k1) == LOCK_MASK | rev_k1:
+                    return self.lockPiece(i, search_bad)
+                
+                non_k = self.direction_index_offset((piece_low ^ 0xF) ^ w_corner)[0]
+                if self.storage[i + non_k[0]] & (PIECE_MASK) == PIECE_F or \
+                    self.storage[i + non_k[0]] == (w_corner ^ 0xF):
+                        return self.lockPiece(i, search_bad)
+                    
+        w_edge = self.isEdge(i)
+        if w_edge:
+            if piece_high == PIECE_L:
+                return self.lockPiece(i, search_bad)
+            elif piece_high == PIECE_B:
+                return self.lockPiece(i, search_bad)
+            elif piece_high == PIECE_V:
+                k = self.direction_index_offset((w_edge ^ 0xF) ^ piece_low)[0]
+                rev_k1 = self.lshift(k[1], 4, 2)
+                
+                if self.storage[i - k[0]] & (LOCK_MASK | k[1]) == (LOCK_MASK | k[1]) or \
+                    self.storage[i + k[0]] & (LOCK_MASK | rev_k1) == LOCK_MASK:
+                        return self.lockPiece(i, search_bad)
+            elif piece_high == PIECE_F:
                 k = adjs_indeces[0]
                 rev_k1 = self.lshift(piece_low, 4, 2)
-                non_k = self.direction_index_offset((piece_low | w) ^ 0xF)
+                non_k = self.direction_index_offset((piece_low | w_edge) ^ 0xF)
                 
-                if self.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1):
-                    self.lockPiece(i)
-                elif (self.storage[i + non_k[0][0]] & 0x30 == 0 or \
-                    self.storage[i + non_k[0][0]] & (0x80 | self.lshift(non_k[0][1], 4, 2)) == 0x80) and \
-                    (self.storage[i + non_k[1][0]] & 0x30 == 0 or \
-                    self.storage[i + non_k[1][0]] & (0x80 | self.lshift(non_k[1][1], 4, 2)) == 0x80):
-                        self.lockPiece(i)
+                if self.storage[i + k[0]] & (LOCK_MASK | rev_k1) == (LOCK_MASK | rev_k1):
+                    return self.lockPiece(i, search_bad)
+                elif (self.storage[i + non_k[0][0]] & PIECE_MASK == PIECE_F or \
+                    self.storage[i + non_k[0][0]] & (LOCK_MASK | self.lshift(non_k[0][1], 4, 2)) == 0x80) and \
+                    (self.storage[i + non_k[1][0]] & PIECE_MASK == PIECE_F or \
+                    self.storage[i + non_k[1][0]] & (LOCK_MASK | self.lshift(non_k[1][1], 4, 2)) == 0x80):
+                        return self.lockPiece(i, search_bad)
         else:
-            if piece_high == 0b0011_0000: # L piece
+            if piece_high == PIECE_L:
                 k = self.direction_index_offset(piece_low)
                 rev_k = self.direction_index_offset(self.lshift(piece_low, 4, 1))
                 
-                if self.storage[i + k[0][0]] & (0x80 | k[1][1]) == (0x80 | k[1][1]) or \
-                    self.storage[i + k[1][0]] & (0x80 | k[0][1]) == (0x80 | k[0][1]):
-                        self.lockPiece(i)
+                if self.storage[i + k[0][0]] & (LOCK_MASK | k[1][1]) == (LOCK_MASK | k[1][1]) or \
+                    self.storage[i + k[1][0]] & (LOCK_MASK | k[0][1]) == (LOCK_MASK | k[0][1]):
+                        return self.lockPiece(i, search_bad)
                 
-                elif self.storage[i + rev_k[0][0]] & (0x80 | rev_k[1][1]) == 0x80 or \
-                    self.storage[i + rev_k[1][0]] & (0x80 | rev_k[0][1]) == 0x80:
-                        self.lockPiece(i)
-            elif piece_high == 0b0001_0000: # B Piece
+                elif self.storage[i + rev_k[0][0]] & (LOCK_MASK | rev_k[1][1]) == LOCK_MASK or \
+                    self.storage[i + rev_k[1][0]] & (LOCK_MASK | rev_k[0][1]) == LOCK_MASK:
+                        return self.lockPiece(i, search_bad)
+            elif piece_high == PIECE_B:
                 k = self.direction_index_offset(piece_low)
                 non_k = self.direction_index_offset(piece_low ^ 0xF)
                 rev_non_k1 = self.lshift(non_k[0][1], 4, 2)
@@ -310,43 +300,83 @@ class Board:
                 rev_k11 = self.lshift(k[1][1], 4, 2)
                 rev_k21 = self.lshift(k[2][1], 4, 2)
                 
-                if self.storage[i + non_k[0][0]] & (0x80 | rev_non_k1) == 0x80:
-                    self.lockPiece(i)
-                elif self.storage[i + k[0][0]] & (0x80 | rev_k01) == (0x80 | rev_k01) and \
-                    self.storage[i + k[1][0]] & (0x80 | rev_k11) == (0x80 | rev_k11) and \
-                    self.storage[i + k[2][0]] & (0x80 | rev_k21) == (0x80 | rev_k21):
-                        self.lockPiece(i)
-            elif piece_high == 0b0010_0000: # V piece
+                if self.storage[i + non_k[0][0]] & (LOCK_MASK | rev_non_k1) == LOCK_MASK:
+                    return self.lockPiece(i, search_bad)
+                elif self.storage[i + k[0][0]] & (LOCK_MASK | rev_k01) == (LOCK_MASK | rev_k01) and \
+                    self.storage[i + k[1][0]] & (LOCK_MASK | rev_k11) == (LOCK_MASK | rev_k11) and \
+                    self.storage[i + k[2][0]] & (LOCK_MASK | rev_k21) == (LOCK_MASK | rev_k21):
+                        return self.lockPiece(i, search_bad)
+            elif piece_high == PIECE_V:
                 k = self.direction_index_offset(piece_low)
                 non_k = self.direction_index_offset(piece_low ^ 0xF)
                 
                 rev_k01 = self.lshift(k[0][1], 4, 2)
                 rev_k11 = self.lshift(k[1][1], 4, 2)
                 
-                if self.storage[i + k[0][0]] & (0x80 | rev_k01) == (0x80 | rev_k01) and \
-                    (self.storage[i + k[1][0]] & (0x80 | rev_k11) == (0x80 | rev_k11) or self.storage[i - k[1][0]] & (0x80 | k[1][1]) == 0x80):
-                        self.lockPiece(i)
+                if self.storage[i + k[0][0]] & (LOCK_MASK | rev_k01) == (LOCK_MASK | rev_k01) and \
+                    (self.storage[i + k[1][0]] & (LOCK_MASK | rev_k11) == (LOCK_MASK | rev_k11) or self.storage[i - k[1][0]] & (0x80 | k[1][1]) == 0x80):
+                        return self.lockPiece(i, search_bad)
                    
-                elif (self.storage[i + k[1][0]] & (0x80 | rev_k11) == (0x80 | rev_k11)) and \
-                    (self.storage[i + k[0][0]] & (0x80 | rev_k01) == (0x80 | rev_k01) or self.storage[i - k[0][0]] & (0x80 | k[0][1]) == 0x80):
-                       self.lockPiece(i)
-                elif self.storage[i - k[0][0]] & (0x80 | k[0][1]) == 0x80 and \
-                    self.storage[i - k[1][0]] & (0x80 | k[1][1]) == 0x80:
-                        self.lockPiece(i)
-            elif piece_high == 0: # F Piece
+                elif (self.storage[i + k[1][0]] & (LOCK_MASK | rev_k11) == (LOCK_MASK | rev_k11)) and \
+                    (self.storage[i + k[0][0]] & (LOCK_MASK | rev_k01) == (LOCK_MASK | rev_k01) or self.storage[i - k[0][0]] & (0x80 | k[0][1]) == 0x80):
+                       return self.lockPiece(i, search_bad)
+                elif self.storage[i - k[0][0]] & (LOCK_MASK | k[0][1]) == LOCK_MASK and \
+                    self.storage[i - k[1][0]] & (LOCK_MASK | k[1][1]) == LOCK_MASK:
+                        return self.lockPiece(i, search_bad)
+            elif piece_high == PIECE_F:
                 rev_k1_c = self.lshift(piece_low, 4, 2)
                 
                 non_k = self.direction_index_offset(piece_low ^ 0xF)
                 
-                if self.storage[i + adjs_indeces[0][0]] & (0x80 | rev_k1_c) == (0x80 | rev_k1_c):
-                    self.lockPiece(i)
-                elif (self.storage[i + non_k[0][0]] & 0x30 == 0 or self.storage[i + non_k[0][0]] & (0x80 | self.lshift(non_k[0][1], 4, 2)) == 0x80) and \
-                    (self.storage[i + non_k[1][0]] & 0x30 == 0 or self.storage[i + non_k[1][0]] & (0x80 | self.lshift(non_k[1][1], 4, 2)) == 0x80) and \
-                    (self.storage[i + non_k[2][0]] & 0x30 == 0 or self.storage[i + non_k[2][0]] & (0x80 | self.lshift(non_k[2][1], 4, 2)) == 0x80):
-                        self.lockPiece(i)
+                if self.storage[i + adjs_indeces[0][0]] & (LOCK_MASK | rev_k1_c) == (LOCK_MASK | rev_k1_c):
+                    return self.lockPiece(i, search_bad)
+                elif (self.storage[i + non_k[0][0]] & PIECE_MASK == PIECE_F or self.storage[i + non_k[0][0]] & (LOCK_MASK | self.lshift(non_k[0][1], 4, 2)) == 0x80) and \
+                    (self.storage[i + non_k[1][0]] & PIECE_MASK == PIECE_F or self.storage[i + non_k[1][0]] & (LOCK_MASK | self.lshift(non_k[1][1], 4, 2)) == 0x80) and \
+                    (self.storage[i + non_k[2][0]] & PIECE_MASK == PIECE_F or self.storage[i + non_k[2][0]] & (LOCK_MASK | self.lshift(non_k[2][1], 4, 2)) == 0x80):
+                        return self.lockPiece(i, search_bad)
             
-                
+                        
+    def getAdjacentIndeces(self, i):
+        h_adjs = self.adjacent_horizontal_values(i)
+        v_adjs = self.adjacent_vertical_values(i)
+        
+        adjs = []
+        if h_adjs[0] and not (h_adjs[0] & 0x80): adjs.append(i - 1)
+        if v_adjs[0] and not (v_adjs[0] & 0x80): adjs.append(i - self.size)
+        if h_adjs[1] and not (h_adjs[1] & 0x80): adjs.append(i + 1)
+        if v_adjs[1] and not (v_adjs[1] & 0x80): adjs.append(i + self.size)
+        
+        return adjs
     
+    def find_bad_locks(self, i):
+        piece = self.storage[i]
+        piece_low = piece & 0xF
+        for k in self.direction_index_offset(0xF):
+            rev_k1 = self.lshift(k[1], 4, 2)
+            pk = self.get_value(i + k[0])
+            if piece_low & k[1] == 0 and pk is None: continue
+            
+            if (piece_low & k[1] and (pk is None or pk & (0x80 | rev_k1) == 0x80)) or \
+                (piece_low & k[1] == 0 and pk & (0x80 | rev_k1) == 0x80 | rev_k1):
+                    return True
+        return False
+        
+                        
+    def find_locks(self, indeces: list, search_bad):
+        min_i = self.size ** 2
+        queue = indeces
+        while queue:
+            p = queue.pop()
+            if self.isLocked(p):
+                continue
+            if self.isLockable(p, search_bad):
+                if search_bad and self.find_bad_locks(p):
+                    return -1
+                min_i = min(min_i, p)
+                queue.extend(self.getAdjacentIndeces(p))
+                
+        return min_i
+
     @staticmethod
     def parse_instance():
         """Lê o test do standard input (stdin) que é passado como argumento
@@ -355,20 +385,20 @@ class Board:
 
         data = stdin.read().split()
         storage = [piece_to_byte[item] for item in data]
-        # Numpy implementation (Slower but more memory efficient)
-        # data = stdin.buffer.read().split()
-        board = Board(int(math.sqrt(len(storage))), storage)
-        #for i in range(len(storage)):
-         #   board.find_locks(i)
-            
-        # storage = np.vectorize(Board.convert_piece)(np.frombuffer(b''.join(data), dtype=np.uint16))
-        return board 
+
+        size = int(math.sqrt(len(storage)))
+        indeces = [i for i in range(size ** 2)] # Generates all indeces from 0 -> (size - 1)
+        
+        board = Board(size, storage, False)
+        board.find_locks(indeces, False) # Looks for all pieces that can be LOCK_MASK initially
+        
+        return board
 
 
 class PipeMania(Problem):
     def __init__(self, board: Board):
         """O construtor especifica o estado inicial."""
-        initial = PipeManiaState(board)
+        initial = PipeManiaState(board, 0)
         super().__init__(initial)
         self.visited = []
         
@@ -427,11 +457,14 @@ class PipeMania(Problem):
                     return (i, 0x80 | piece_high | final_dir)
         else: # Center Pieces
             if piece_high == 0b0011_0000: # L Piece
-                k1, k2 = board.direction_index_offset(self.lshift(piece_low, 4, 1))
+                k1, k2 = board.direction_index_offset(piece_low)
+                rev_k1, rev_k2 = board.direction_index_offset(self.lshift(piece_low, 4, 1))
                 
-                if board.storage[i + k1[0]] & (0x80 | k2[1]) == (0x80 | k2[1]) or \
-                    board.storage[i + k2[0]] & (0x80 | k1[1]) == (0x80 | k1[1]):
-                        return (i, 0x80 | piece_high | k1[1] | k2[1])
+                if board.storage[i + rev_k1[0]] & (0x80 | rev_k2[1]) == (0x80 | rev_k2[1]) or \
+                    board.storage[i + rev_k2[0]] & (0x80 | rev_k1[1]) == (0x80 | rev_k1[1]) or \
+                    board.storage[i + k1[0]] & (0x80 | k2[1]) == 0x80 or \
+                    board.storage[i + k2[0]] & (0x80 | k1[1]) == 0x80:
+                        return (i, 0x80 | piece_high | rev_k1[1] | rev_k2[1])
             elif piece_high == 0b0001_0000: # B Piece
                 final_dir = 0
                 for k in board.direction_index_offset(0xF): # Get all directions
@@ -469,25 +502,33 @@ class PipeMania(Problem):
                 if rev_final_dir != 0 and (rev_final_dir & (rev_final_dir - 1)) == 0:
                     return (i, 0x80 | piece_high | rev_final_dir)
                 
-        return None         
-        
-    def lockable_actions(self, state: PipeManiaState):
-        board = state.board
-        #lock_actions = []
-        
-        for i in range(len(board.storage)):
-            if board.isLocked(i):
-                continue
-            board.find_locks(i)
-        
-        for i in range(len(board.storage)):
-            if board.isLocked(i):
-                continue
+        return None
     
+    def correctLastIndex(self, index, size):
+        if index <= 0:
+            return 0
+        elif index < size:
+            return index - 1
+        else:
+            return index - size
+        
+    
+    def lockableAction(self, state: PipeManiaState):
+        board = state.board
+        
+        last_index = self.correctLastIndex(state.last_index, board.size)    
+
+        for i in range(last_index, board.size ** 2):
+            if board.isLocked(i):
+                continue
             action = self.generate_lockable_action(i, board)
-            if action:
-                return (action, )
-            
+            if action is not None:
+                if board.exhausted:
+                    board.change_piece(*action)
+                    if board.find_locks(board.getAdjacentIndeces(i), True) == -1:
+                        return -1
+                return action
+           
         return None
     
     def actions(self, state: PipeManiaState):
@@ -496,9 +537,12 @@ class PipeMania(Problem):
         board: Board = state.board
         actions = []
         
-        lock_action = self.lockable_actions(state)
+        lock_action = self.lockableAction(state)
+        if lock_action == -1:
+            return ()
         
-        if lock_action is None: # Generate unfiltered actions if no lockable available
+        if lock_action is None:
+            board.exhausted = True
             for i, piece in enumerate(board.storage):
                 if board.isLocked(i):
                     continue
@@ -506,27 +550,47 @@ class PipeMania(Problem):
                 piece_high = (piece & 0xF0)
                 piece_low = (piece & 0x0F)
                 
+                ly = ln = 0
+                for k in board.direction_index_offset(0xF):
+                    rev_k1 = self.lshift(k[1], 4, 2)
+                    p = board.get_value(i + k[0])
+                    if p is None or p & (0x80 | rev_k1) == 0x80:
+                        ln |= k[1]
+                    elif p & (0x80 | rev_k1) == (0x80 | rev_k1):
+                        ly |= k[1]
+                
                 if piece_high != 0b0011_0000:
                     a = self.lshift(piece_low, 4, 1)
                     b = self.lshift(a, 4, 1)
                     c = self.lshift(b, 4, 1)
                     
-                    actions.extend([(i, 0x80 | piece), (i, 0x80 | piece_high | a), (i, 0x80 | piece_high | b), (i, 0x80 | piece_high | c)])
+                    p_a = 0x80 | piece_high | a
+                    p_b = 0x80 | piece_high | b
+                    p_c = 0x80 | piece_high | c
+                    
+                    if (piece_low & ly) == ly and (piece_low & ln) == 0:
+                        actions.append((i, 0x80 | piece))
+                    if (p_a & ly) == ly and (p_a & ln) == 0:
+                        actions.append((i, p_a))
+                    if (p_b & ly) == ly and (p_b & ln) == 0:
+                        actions.append((i, p_b))
+                    if (p_c & ly) == ly and (p_c & ln) == 0:
+                        actions.append((i, p_c))
+                    return actions
                 else:
                     a = self.lshift(piece_low, 4, 1)
-                    actions.extend([(i, 0x80 | piece), (i, 0x80 | piece_high | a)])
+                    
+                    p_a = 0x80 | piece_high | a
+                    
+                    if (piece_low & ly) == ly and (piece_low & ln) == 0:
+                        actions.append((i, 0x80 | piece))
+                    if (p_a & ly) == ly and (p_a & ln) == 0:
+                        actions.append((i, p_a))
+                    return actions
         else:
-            actions = lock_action
-        """ for action in actions:
-            copy = state.board.copy()
-            copy.change_piece(*action)
-            
-            for b in self.visited:
-                if copy == b:
-                    actions.remove(action)
-                    break """
+            actions = (lock_action,)
         return actions
-        
+
 
     def result(self, state: PipeManiaState, action):
         """Retorna o estado resultante de executar a 'action' sobre
@@ -536,8 +600,9 @@ class PipeMania(Problem):
         # TODO
         board = state.board.copy()
         board.change_piece(*action)
+        min_find = board.find_locks(board.getAdjacentIndeces(action[0]), False)
         
-        return PipeManiaState(board)
+        return PipeManiaState(board, min(action[0], min_find))
 
     def goal_test(self, state: PipeManiaState):
         """Retorna True se e só se o estado passado como argumento é
@@ -548,7 +613,7 @@ class PipeMania(Problem):
         board = state.board
         for i, piece in enumerate(board.storage):
             # left, right, up, down
-            adjs = board.adjacent_horizontal_values(0, 0, i) + board.adjacent_vertical_values(0, 0, i)
+            adjs = board.adjacent_horizontal_values(i) + board.adjacent_vertical_values(i)
             
             p_left = piece & 0b0000_1000
             p_up = piece & 0b0000_0100
@@ -594,6 +659,6 @@ if __name__ == "__main__":
     board = Board.parse_instance()
     
     problem = PipeMania(board)
-    
     goal_node = depth_first_tree_search(problem)
+    
     print(goal_node.state.board.print())
