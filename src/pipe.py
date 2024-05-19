@@ -391,15 +391,6 @@ class Board:
         
         board = Board(size, storage, False)
         board.find_locks(indeces, False) # Looks for all pieces that can be LOCK_MASK initially
-        print("Locks:")
-        out = []
-        for i in range(len(board.storage)):
-            out.append(str(board.isLocked(i))) # Remove lock bit
-            if ((i + 1) % board.size != 0):
-                out.append('\t')
-            else:
-                out.append('\n')
-        print("".join(out))
         
         return board
 
@@ -526,8 +517,7 @@ class PipeMania(Problem):
         board = state.board
         
         last_index = self.correctLastIndex(state.last_index, board.size)    
-            
-        print("LAST INDEX:", last_index)
+
         for i in range(last_index, board.size ** 2):
             if board.isLocked(i):
                 continue
@@ -547,29 +537,11 @@ class PipeMania(Problem):
         board: Board = state.board
         actions = []
         
-        print("Expanding state:", state.id)
-        print(board.print())
-        
-        if state.id == 1155:
-            print("aaa")
-        
         lock_action = self.lockableAction(state)
         if lock_action == -1:
-            print("BACKTRACKING")
             return ()
         
-        print("Locks:")
-        out = []
-        for i in range(len(board.storage)):
-            out.append(str(board.isLocked(i))) # Remove lock bit
-            if ((i + 1) % board.size != 0):
-                out.append('\t')
-            else:
-                out.append('\n')
-        print("".join(out))
-        
         if lock_action is None:
-            print("GENERATING RANDOM ACTIONS")
             board.exhausted = True
             for i, piece in enumerate(board.storage):
                 if board.isLocked(i):
@@ -617,8 +589,6 @@ class PipeMania(Problem):
                     return actions
         else:
             actions = (lock_action,)
-            
-        print(actions)
         return actions
 
 
@@ -687,10 +657,8 @@ if __name__ == "__main__":
     # Retirar a solução a partir do nó resultante,
     # Imprimir para o standard output no formato indicado.
     board = Board.parse_instance()
-    print("Done")
     
     problem = PipeMania(board)
     goal_node = depth_first_tree_search(problem)
     
-    print("Is goal?", problem.goal_test(goal_node.state))
     print(goal_node.state.board.print())
