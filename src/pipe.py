@@ -7,22 +7,13 @@
 # 00000 Nome2
 
 import math
-import numpy as np
-import random
-from collections import deque
 
 from sys import stdin
 from search import (
     Problem,
     Node,
-    astar_search,
-    breadth_first_tree_search,
     depth_first_tree_search,
-    greedy_search,
-    recursive_best_first_search,
 )
-  
-    
 
 # High nibble stores lock bit (1st bit) and piece type (F -> 00, B -> 01, V -> 10, L -> 11) in the last 2 bits.
 # Low nibble stores open ends (0bXXXX_(Left)(Up)(Right)(Down) )
@@ -145,10 +136,7 @@ class Board:
 
     def change_piece(self,index, new_piece):
         self.storage[index] = new_piece
-        
-    def __eq__(self, other) -> bool:
-        return self.storage == other.storage
-    
+
     def lockPiece(self, index, search_bad):
         if not search_bad:
             self.storage[index] |= 0x80
@@ -197,20 +185,6 @@ class Board:
         elif (self.size ** 2 - i) <= self.size:
             return 0b0001
         return 0
-        
-    @staticmethod
-    def board_frontier_range(size):
-        for i in range(size):
-            yield i
-        
-        curr = size
-        for i in range(size - 2):
-            yield curr
-            yield curr + size - 1
-            curr += size
-            
-        for i in range(size):
-            yield curr + i
     
     def direction_index_offset(self, facing):
         i = []
@@ -400,7 +374,6 @@ class PipeMania(Problem):
         """O construtor especifica o estado inicial."""
         initial = PipeManiaState(board, 0)
         super().__init__(initial)
-        self.visited = []
         
     def generate_lockable_action(self, i, board: Board):
         piece = board.storage[i]
@@ -504,19 +477,16 @@ class PipeMania(Problem):
                 
         return None
     
-    def correctLastIndex(self, index, size):
-        if index <= 0:
-            return 0
-        elif index < size:
-            return index - 1
-        else:
-            return index - size
-        
-    
     def lockableAction(self, state: PipeManiaState):
         board = state.board
         
-        last_index = self.correctLastIndex(state.last_index, board.size)    
+        last_index = state.last_index
+        if last_index <= 0:
+            last_index = 0
+        elif last_index < board.size:
+            last_index -= 1
+        else:
+            last_index -= board.size    
 
         for i in range(last_index, board.size ** 2):
             if board.isLocked(i):
@@ -534,14 +504,13 @@ class PipeMania(Problem):
     def actions(self, state: PipeManiaState):
         """Retorna uma lista de ações que podem ser executadas a
         partir do estado passado como argumento."""
-        board: Board = state.board
-        actions = []
-        
         lock_action = self.lockableAction(state)
         if lock_action == -1:
             return ()
         
         if lock_action is None:
+            board: Board = state.board
+            actions = []
             board.exhausted = True
             for i, piece in enumerate(board.storage):
                 if board.isLocked(i):
@@ -588,8 +557,9 @@ class PipeMania(Problem):
                         actions.append((i, p_a))
                     return actions
         else:
-            actions = (lock_action,)
-        return actions
+            return (lock_action,)
+        
+        return ()
 
 
     def result(self, state: PipeManiaState, action):
@@ -630,12 +600,6 @@ class PipeMania(Problem):
                 return False
             
         return True
-    
-    def isVisited(self, board):
-        for b in self.visited:
-            if board == b:
-                return True
-        return False
 
     def h(self, node: Node):
         """Função heuristica utilizada para a procura A*."""
@@ -651,11 +615,6 @@ class PipeMania(Problem):
 
 
 if __name__ == "__main__":
-    # TODO:
-    # Ler o ficheiro do standard input,
-    # Usar uma técnica de procura para resolver a instância,
-    # Retirar a solução a partir do nó resultante,
-    # Imprimir para o standard output no formato indicado.
     board = Board.parse_instance()
     
     problem = PipeMania(board)
