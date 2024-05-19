@@ -9,10 +9,12 @@
 | 5x5 | :white_check_mark: |
 | 10x10 | :white_check_mark: |
 | 15x15 | :white_check_mark: |
-| 20x20 | :x: |
-| 25x25 | :x: |
-| 30x30 | :x: |
-| 35x35 | :x: |
-| 40x40 | :x: |
-| 45x45 | :x: |
-| 50x50 | :x: |
+| 20x20 | :white_check_mark: |
+| 25x25 | :white_check_mark: |
+| 30x30 | :white_check_mark: |
+| 35x35 | :white_check_mark: |
+| 40x40 | :white_check_mark: |
+| 45x45 | :white_check_mark: |
+| 50x50 | :white_check_mark: |
+
+the result of test-15x15 finishes but its not yet correct. Better goal_test function required!
