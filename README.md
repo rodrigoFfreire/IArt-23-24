@@ -16,5 +16,3 @@
 | 40x40 | :white_check_mark: |
 | 45x45 | :white_check_mark: |
 | 50x50 | :white_check_mark: |
-
-the result of test-15x15 finishes but its not yet correct. Better goal_test function required!

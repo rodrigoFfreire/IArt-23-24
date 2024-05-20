@@ -2,8 +2,8 @@
 # Devem alterar as classes e funções neste ficheiro de acordo com as instruções do enunciado.
 # Além das funções e classes sugeridas, podem acrescentar outras que considerem pertinentes.
 
-# Grupo 00:
-# 00000 Nome1
+# Grupo 119:
+# 1106485 Rodrigo Freire
 # 00000 Nome2
 
 import math
@@ -49,15 +49,6 @@ byte_to_piece = {
     0x26: "VD",
     0x3A: "LH",
     0x35: "LV"
-}
-
-a = {
-    0b0011: (0b0010, 0b0001),
-    0b0110: (0b0100, 0b0010),
-    0b1100: (0b1000, 0b0100),
-    0b1001: (0b1000, 0b0001),
-    0b1010: (0b1000, 0b0010),
-    0b0101: (0b0100, 0b0001),
 }
 
 DIR_LEFT = 0b1000
@@ -146,7 +137,7 @@ class Board:
         self.storage[index] ^ 0x80
         
     def isLocked(self, index):
-        return True if self.storage[index] & 0x80 else False
+        return self.storage[index] & 0x80
         
     def getAdjacentPieces(self, index, piece):
         h_adjs = self.adjacent_horizontal_values(index)
@@ -201,59 +192,23 @@ class Board:
         
     def lshift(self, x, size, amount):
         return ((x << amount) % (1 << size)) | (x >> (size - amount))
+    
+    def invert_direction(self, x):
+        return ((x << 2) % 16) | (x >> 2)
+    
+    def rshift(self, x, size, amount):
+        return ((x >> amount) | (x << (size - amount))) & ((1 << size) - 1)
+    
+    def index_to_coords(self, index: int):
+        return (index // self.size, index % self.size)
                         
     def isLockable(self, i, search_bad):
         piece = self.storage[i]
-        
         piece_high = piece & 0xF0
         piece_low = piece & 0xF
-        adjs_indeces = self.direction_index_offset(piece_low)
-        
-        # If a piece has ends facing the border then its definitely not lockable
-        if None in self.getAdjacentPieces(i, piece):
-            return
-        
-        w_corner = self.isCorner(i)
-        if w_corner:
-            if piece_high == PIECE_V:
-                return self.lockPiece(i, search_bad)
-            elif piece_high == PIECE_F:
-                k = self.direction_index_offset(piece_low)[0]
-                rev_k1 = self.lshift(k[1], 4, 2)
-                if self.storage[i + k[0]] & (LOCK_MASK | rev_k1) == LOCK_MASK | rev_k1:
-                    return self.lockPiece(i, search_bad)
-                
-                non_k = self.direction_index_offset((piece_low ^ 0xF) ^ w_corner)[0]
-                if self.storage[i + non_k[0]] & (PIECE_MASK) == PIECE_F or \
-                    self.storage[i + non_k[0]] == (w_corner ^ 0xF):
-                        return self.lockPiece(i, search_bad)
-                    
-        w_edge = self.isEdge(i)
-        if w_edge:
-            if piece_high == PIECE_L:
-                return self.lockPiece(i, search_bad)
-            elif piece_high == PIECE_B:
-                return self.lockPiece(i, search_bad)
-            elif piece_high == PIECE_V:
-                k = self.direction_index_offset((w_edge ^ 0xF) ^ piece_low)[0]
-                rev_k1 = self.lshift(k[1], 4, 2)
-                
-                if self.storage[i - k[0]] & (LOCK_MASK | k[1]) == (LOCK_MASK | k[1]) or \
-                    self.storage[i + k[0]] & (LOCK_MASK | rev_k1) == LOCK_MASK:
-                        return self.lockPiece(i, search_bad)
-            elif piece_high == PIECE_F:
-                k = adjs_indeces[0]
-                rev_k1 = self.lshift(piece_low, 4, 2)
-                non_k = self.direction_index_offset((piece_low | w_edge) ^ 0xF)
-                
-                if self.storage[i + k[0]] & (LOCK_MASK | rev_k1) == (LOCK_MASK | rev_k1):
-                    return self.lockPiece(i, search_bad)
-                elif (self.storage[i + non_k[0][0]] & PIECE_MASK == PIECE_F or \
-                    self.storage[i + non_k[0][0]] & (LOCK_MASK | self.lshift(non_k[0][1], 4, 2)) == 0x80) and \
-                    (self.storage[i + non_k[1][0]] & PIECE_MASK == PIECE_F or \
-                    self.storage[i + non_k[1][0]] & (LOCK_MASK | self.lshift(non_k[1][1], 4, 2)) == 0x80):
-                        return self.lockPiece(i, search_bad)
-        else:
+
+        row, col = self.index_to_coords(i)
+        if row > 0 and row < self.size - 1 and col > 0 and col < self.size - 1:
             if piece_high == PIECE_L:
                 k = self.direction_index_offset(piece_low)
                 rev_k = self.direction_index_offset(self.lshift(piece_low, 4, 1))
@@ -268,11 +223,11 @@ class Board:
             elif piece_high == PIECE_B:
                 k = self.direction_index_offset(piece_low)
                 non_k = self.direction_index_offset(piece_low ^ 0xF)
-                rev_non_k1 = self.lshift(non_k[0][1], 4, 2)
+                rev_non_k1 = self.invert_direction(non_k[0][1])
                 
-                rev_k01 = self.lshift(k[0][1], 4, 2)
-                rev_k11 = self.lshift(k[1][1], 4, 2)
-                rev_k21 = self.lshift(k[2][1], 4, 2)
+                rev_k01 = self.invert_direction(k[0][1])
+                rev_k11 = self.invert_direction(k[1][1])
+                rev_k21 = self.invert_direction(k[2][1])
                 
                 if self.storage[i + non_k[0][0]] & (LOCK_MASK | rev_non_k1) == LOCK_MASK:
                     return self.lockPiece(i, search_bad)
@@ -284,8 +239,8 @@ class Board:
                 k = self.direction_index_offset(piece_low)
                 non_k = self.direction_index_offset(piece_low ^ 0xF)
                 
-                rev_k01 = self.lshift(k[0][1], 4, 2)
-                rev_k11 = self.lshift(k[1][1], 4, 2)
+                rev_k01 = self.invert_direction(k[0][1])
+                rev_k11 = self.invert_direction(k[1][1])
                 
                 if self.storage[i + k[0][0]] & (LOCK_MASK | rev_k01) == (LOCK_MASK | rev_k01) and \
                     (self.storage[i + k[1][0]] & (LOCK_MASK | rev_k11) == (LOCK_MASK | rev_k11) or self.storage[i - k[1][0]] & (0x80 | k[1][1]) == 0x80):
@@ -298,16 +253,168 @@ class Board:
                     self.storage[i - k[1][0]] & (LOCK_MASK | k[1][1]) == LOCK_MASK:
                         return self.lockPiece(i, search_bad)
             elif piece_high == PIECE_F:
-                rev_k1_c = self.lshift(piece_low, 4, 2)
-                
+                k = self.direction_index_offset(piece_low)
+                rev_k1_c = self.invert_direction(piece_low)
                 non_k = self.direction_index_offset(piece_low ^ 0xF)
                 
-                if self.storage[i + adjs_indeces[0][0]] & (LOCK_MASK | rev_k1_c) == (LOCK_MASK | rev_k1_c):
+                if self.storage[i + k[0][0]] & (LOCK_MASK | rev_k1_c) == (LOCK_MASK | rev_k1_c):
                     return self.lockPiece(i, search_bad)
                 elif (self.storage[i + non_k[0][0]] & PIECE_MASK == PIECE_F or self.storage[i + non_k[0][0]] & (LOCK_MASK | self.lshift(non_k[0][1], 4, 2)) == 0x80) and \
                     (self.storage[i + non_k[1][0]] & PIECE_MASK == PIECE_F or self.storage[i + non_k[1][0]] & (LOCK_MASK | self.lshift(non_k[1][1], 4, 2)) == 0x80) and \
                     (self.storage[i + non_k[2][0]] & PIECE_MASK == PIECE_F or self.storage[i + non_k[2][0]] & (LOCK_MASK | self.lshift(non_k[2][1], 4, 2)) == 0x80):
                         return self.lockPiece(i, search_bad)
+            return False   
+        # If a piece has ends facing the border then its definitely not lockable
+        if None in self.getAdjacentPieces(i, piece):
+            return
+        
+        w_corner = self.isCorner(i)
+        if w_corner:
+            if piece_high == PIECE_V:
+                return self.lockPiece(i, search_bad)
+            elif piece_high == PIECE_F:
+                k = self.direction_index_offset(piece_low)[0]
+                rev_k1 = self.invert_direction(k[1])
+                if self.storage[i + k[0]] & (LOCK_MASK | rev_k1) == LOCK_MASK | rev_k1:
+                    return self.lockPiece(i, search_bad)
+                
+                non_k = self.direction_index_offset((piece_low ^ 0xF) ^ w_corner)[0]
+                if self.storage[i + non_k[0]] & (PIECE_MASK) == PIECE_F or \
+                    self.storage[i + non_k[0]] == (w_corner ^ 0xF):
+                        return self.lockPiece(i, search_bad)    
+        else:
+            w_edge = self.isEdge(i)
+            if piece_high == PIECE_L:
+                return self.lockPiece(i, search_bad)
+            elif piece_high == PIECE_B:
+                return self.lockPiece(i, search_bad)
+            elif piece_high == PIECE_V:
+                k = self.direction_index_offset((w_edge ^ 0xF) ^ piece_low)[0]
+                rev_k1 = self.invert_direction(k[1])
+                
+                if self.storage[i - k[0]] & (LOCK_MASK | k[1]) == (LOCK_MASK | k[1]) or \
+                    self.storage[i + k[0]] & (LOCK_MASK | rev_k1) == LOCK_MASK:
+                        return self.lockPiece(i, search_bad)
+            elif piece_high == PIECE_F:
+                k = self.direction_index_offset(piece_low)[0]
+                rev_k1 = self.invert_direction(piece_low)
+                non_k = self.direction_index_offset((piece_low | w_edge) ^ 0xF)
+                
+                if self.storage[i + k[0]] & (LOCK_MASK | rev_k1) == (LOCK_MASK | rev_k1):
+                    return self.lockPiece(i, search_bad)
+                elif (self.storage[i + non_k[0][0]] & PIECE_MASK == PIECE_F or \
+                    self.storage[i + non_k[0][0]] & (LOCK_MASK | self.invert_direction(non_k[0][1])) == 0x80) and \
+                    (self.storage[i + non_k[1][0]] & PIECE_MASK == PIECE_F or \
+                    self.storage[i + non_k[1][0]] & (LOCK_MASK | self.invert_direction(non_k[1][1])) == 0x80):
+                        return self.lockPiece(i, search_bad)
+        
+        return False
+            
+                
+    def generate_lockable_action(self, i):
+        piece = self.storage[i]
+        piece_high = piece & 0xF0
+        piece_low = piece & 0xF
+        
+        row, col = self.index_to_coords(i)
+        if row > 0 and row < self.size - 1 and col > 0 and col < self.size - 1:
+            if piece_high == 0b0011_0000: # L Piece
+                k1, k2 = self.direction_index_offset(piece_low)
+                rev_k1, rev_k2 = self.direction_index_offset(self.lshift(piece_low, 4, 1))
+                
+                if self.storage[i + rev_k1[0]] & (0x80 | rev_k2[1]) == (0x80 | rev_k2[1]) or \
+                    self.storage[i + rev_k2[0]] & (0x80 | rev_k1[1]) == (0x80 | rev_k1[1]) or \
+                    self.storage[i + k1[0]] & (0x80 | k2[1]) == 0x80 or \
+                    self.storage[i + k2[0]] & (0x80 | k1[1]) == 0x80:
+                        return (i, 0x80 | piece_high | rev_k1[1] | rev_k2[1])
+            elif piece_high == 0b0001_0000: # B Piece
+                final_dir = 0
+                for k in self.direction_index_offset(0xF): # Get all directions
+                    rev_k1 = self.invert_direction(k[1])
+                    if self.storage[i + k[0]] & (0x80 | rev_k1) == 0x80:
+                        return (i, 0x80 | piece_high | (k[1] ^ 0xF))
+                    elif self.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1):
+                        final_dir |= k[1]
+                        
+                rev_final_dir = final_dir ^ 0xF
+                if rev_final_dir != 0 and (rev_final_dir & (rev_final_dir - 1)) == 0:
+                    return (i, 0x80 | piece_high | final_dir)
+            elif piece_high == 0b0010_0000: # V Piece
+                y = n = 0
+                for k in self.direction_index_offset(0xF): # Get all directions
+                    rev_k1 = self.invert_direction(k[1])
+                    if self.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1):
+                        y |= k[1]
+                    elif self.storage[i + k[0]] & (0x80 | rev_k1) == 0x80:
+                        n |= k[1]
+                r = y | self.invert_direction(n)
+                if r != 0 and r % 3 == 0: # Checks if it has 2 adjacent directions (valid v piece)
+                    return (i, 0x80 | piece_high | r)
+            elif piece_high == 0: # F piece
+                final_dir = 0
+                for k in self.direction_index_offset(0xF): # Get all directions
+                    rev_k1 = self.invert_direction(k[1])
+                    if self.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1):
+                        return (i, 0x80 | piece_high | k[1])
+                    elif self.storage[i + k[0]] & (0x80 | rev_k1) == 0x80 or \
+                        self.storage[i + k[0]] & 0x30 == 0:
+                        final_dir |= k[1]
+                
+                rev_final_dir = final_dir ^ 0xF
+                if rev_final_dir != 0 and (rev_final_dir & (rev_final_dir - 1)) == 0:
+                    return (i, 0x80 | piece_high | rev_final_dir)
+                
+            return None
+        
+        w_c = self.isCorner(i)
+        if w_c: # Corner Pieces
+            if piece_high == 0b0010_0000: # V piece
+                return (i, 0x80 | piece_high | self.invert_direction(w_c))
+            elif piece_high == 0: # F piece
+                v_wall = w_c & 0b0101
+                h_wall = w_c & 0b1010
+                
+                k_v = self.direction_index_offset(self.invert_direction(v_wall))[0]
+                k_h = self.direction_index_offset(self.invert_direction(h_wall))[0]
+                
+                if self.storage[i + k_h[0]] & 0x30 == 0 or \
+                    self.storage[i + k_h[0]] == (0xA0 | k_h[1] | k_v[1]) or \
+                    self.storage[i + k_v[0]] & (0x80 | v_wall) == (0x80 | v_wall):
+                        return (i, 0x80 | piece_high | k_v[1])
+                
+                elif self.storage[i + k_v[0]] & 0x30 == 0 or \
+                    self.storage[i + k_v[0]] == (0xA0 | k_h[1] | k_v[1]) or \
+                    self.storage[i + k_h[0]] & (0x80 | h_wall) == (0x80 | h_wall):
+                        return (i, 0x80 | piece_high | k_h[1])
+        else:
+            w_e = self.isEdge(i)
+            if piece_high == 0b0011_0000: # L piece
+                return (i, 0x80 | piece_high | (self.lshift(w_e, 4, 1) | self.rshift(w_e, 4, 1)))
+            elif piece_high == 0b0001_0000: # B piece
+                return (i, 0x80 | piece_high | (w_e ^ 0xF))
+            elif piece_high == 0b0010_0000: # V piece
+                k = self.direction_index_offset(self.lshift(w_e, 4, 1))[0]
+                rev_k1 = self.invert_direction(k[1])
+                if self.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1) or \
+                    self.storage[i - k[0]] & (0x80 | k[1]) == 0x80:
+                    return (i, 0x80 | piece_high | self.invert_direction(w_e) | k[1])
+                    
+                elif self.storage[i + k[0]] & (0x80 | rev_k1) == 0x80 or \
+                    self.storage[i - k[0]] & (0x80 | k[1]) == (0x80 | k[1]):
+                    return (i, 0x80 | piece_high | self.invert_direction(w_e) | rev_k1)
+            elif piece_high == 0: # F piece
+                final_dir = w_e
+                for k in self.direction_index_offset(w_e ^ 0xF):
+                    rev_k1 = self.invert_direction(k[1])
+                    if self.storage[i + k[0]] & 0x30 == 0 or self.storage[i + k[0]] & (0x80 | rev_k1) == 0x80:
+                        final_dir |= k[1]
+                    elif self.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1):
+                        return (i, 0x80 | piece_high | k[1])
+                final_dir ^= 0xF # Invert the bits
+                if final_dir != 0 and (final_dir & (final_dir - 1)) == 0: # Check if only 1 bit is on
+                    return (i, 0x80 | piece_high | final_dir)
+                
+        return None
             
                         
     def getAdjacentIndeces(self, i):
@@ -326,7 +433,7 @@ class Board:
         piece = self.storage[i]
         piece_low = piece & 0xF
         for k in self.direction_index_offset(0xF):
-            rev_k1 = self.lshift(k[1], 4, 2)
+            rev_k1 = self.invert_direction(k[1])
             pk = self.get_value(i + k[0])
             if piece_low & k[1] == 0 and pk is None: continue
             
@@ -364,7 +471,7 @@ class Board:
         indeces = [i for i in range(size ** 2)] # Generates all indeces from 0 -> (size - 1)
         
         board = Board(size, storage, False)
-        board.find_locks(indeces, False) # Looks for all pieces that can be LOCK_MASK initially
+        board.find_locks(indeces, False) # Looks for all pieces that can be locked initially
         
         return board
 
@@ -374,108 +481,6 @@ class PipeMania(Problem):
         """O construtor especifica o estado inicial."""
         initial = PipeManiaState(board, 0)
         super().__init__(initial)
-        
-    def generate_lockable_action(self, i, board: Board):
-        piece = board.storage[i]
-        piece_high = piece & 0xF0
-        piece_low = piece & 0xF
-        
-        w_c = board.isCorner(i)
-        if w_c: # Corner Pieces
-            if piece_high == 0b0010_0000: # V piece
-                return (i, 0x80 | piece_high | self.lshift(w_c, 4, 2))
-            elif piece_high == 0: # F piece
-                v_wall = w_c & 0b0101
-                h_wall = w_c & 0b1010
-                
-                k_v = board.direction_index_offset(self.lshift(v_wall, 4, 2))[0]
-                k_h = board.direction_index_offset(self.lshift(h_wall, 4, 2))[0]
-                
-                if board.storage[i + k_h[0]] & 0x30 == 0 or \
-                    board.storage[i + k_h[0]] == (0xA0 | k_h[1] | k_v[1]) or \
-                    board.storage[i + k_v[0]] & (0x80 | v_wall) == (0x80 | v_wall):
-                        return (i, 0x80 | piece_high | k_v[1])
-                
-                elif board.storage[i + k_v[0]] & 0x30 == 0 or \
-                    board.storage[i + k_v[0]] == (0xA0 | k_h[1] | k_v[1]) or \
-                    board.storage[i + k_h[0]] & (0x80 | h_wall) == (0x80 | h_wall):
-                        return (i, 0x80 | piece_high | k_h[1])
-            return None
-        w_e = board.isEdge(i)
-        if w_e: # Edge Pieces
-            if piece_high == 0b0011_0000: # L piece
-                return (i, 0x80 | piece_high | (self.lshift(w_e, 4, 1) | self.rshift(w_e, 4, 1)))
-            elif piece_high == 0b0001_0000: # B piece
-                return (i, 0x80 | piece_high | (w_e ^ 0xF))
-            elif piece_high == 0b0010_0000: # V piece
-                k = board.direction_index_offset(self.lshift(w_e, 4, 1))[0]
-                rev_k1 = self.lshift(k[1], 4, 2)
-                if board.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1) or \
-                    board.storage[i - k[0]] & (0x80 | k[1]) == 0x80:
-                    return (i, 0x80 | piece_high | self.lshift(w_e, 4, 2) | k[1])
-                    
-                elif board.storage[i + k[0]] & (0x80 | rev_k1) == 0x80 or \
-                    board.storage[i - k[0]] & (0x80 | k[1]) == (0x80 | k[1]):
-                    return (i, 0x80 | piece_high | self.lshift(w_e, 4, 2) | rev_k1)
-            elif piece_high == 0: # F piece
-                final_dir = w_e
-                for k in board.direction_index_offset(w_e ^ 0xF):
-                    rev_k1 = self.lshift(k[1], 4, 2)
-                    if board.storage[i + k[0]] & 0x30 == 0 or board.storage[i + k[0]] & (0x80 | rev_k1) == 0x80:
-                        final_dir |= k[1]
-                    elif board.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1):
-                        return (i, 0x80 | piece_high | k[1])
-                final_dir ^= 0xF # Invert the bits
-                if final_dir != 0 and (final_dir & (final_dir - 1)) == 0: # Check if only 1 bit is on
-                    return (i, 0x80 | piece_high | final_dir)
-        else: # Center Pieces
-            if piece_high == 0b0011_0000: # L Piece
-                k1, k2 = board.direction_index_offset(piece_low)
-                rev_k1, rev_k2 = board.direction_index_offset(self.lshift(piece_low, 4, 1))
-                
-                if board.storage[i + rev_k1[0]] & (0x80 | rev_k2[1]) == (0x80 | rev_k2[1]) or \
-                    board.storage[i + rev_k2[0]] & (0x80 | rev_k1[1]) == (0x80 | rev_k1[1]) or \
-                    board.storage[i + k1[0]] & (0x80 | k2[1]) == 0x80 or \
-                    board.storage[i + k2[0]] & (0x80 | k1[1]) == 0x80:
-                        return (i, 0x80 | piece_high | rev_k1[1] | rev_k2[1])
-            elif piece_high == 0b0001_0000: # B Piece
-                final_dir = 0
-                for k in board.direction_index_offset(0xF): # Get all directions
-                    rev_k1 = self.lshift(k[1], 4, 2)
-                    if board.storage[i + k[0]] & (0x80 | rev_k1) == 0x80:
-                        return (i, 0x80 | piece_high | (k[1] ^ 0xF))
-                    elif board.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1):
-                        final_dir |= k[1]
-                        
-                rev_final_dir = final_dir ^ 0xF
-                if rev_final_dir != 0 and (rev_final_dir & (rev_final_dir - 1)) == 0:
-                    return (i, 0x80 | piece_high | final_dir)
-            elif piece_high == 0b0010_0000: # V Piece
-                y = n = 0
-                for k in board.direction_index_offset(0xF): # Get all directions
-                    rev_k1 = self.lshift(k[1], 4, 2)
-                    if board.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1):
-                        y |= k[1]
-                    elif board.storage[i + k[0]] & (0x80 | rev_k1) == 0x80:
-                        n |= k[1]
-                r = y | self.lshift(n, 4, 2)
-                if r != 0 and r % 3 == 0: # Checks if it has 2 adjacent directions (valid v piece)
-                    return (i, 0x80 | piece_high | r)
-            elif piece_high == 0: # F piece
-                final_dir = 0
-                for k in board.direction_index_offset(0xF): # Get all directions
-                    rev_k1 = self.lshift(k[1], 4, 2)
-                    if board.storage[i + k[0]] & (0x80 | rev_k1) == (0x80 | rev_k1):
-                        return (i, 0x80 | piece_high | k[1])
-                    elif board.storage[i + k[0]] & (0x80 | rev_k1) == 0x80 or \
-                        board.storage[i + k[0]] & 0x30 == 0:
-                        final_dir |= k[1]
-                
-                rev_final_dir = final_dir ^ 0xF
-                if rev_final_dir != 0 and (rev_final_dir & (rev_final_dir - 1)) == 0:
-                    return (i, 0x80 | piece_high | rev_final_dir)
-                
-        return None
     
     def lockableAction(self, state: PipeManiaState):
         board = state.board
@@ -491,7 +496,7 @@ class PipeMania(Problem):
         for i in range(last_index, board.size ** 2):
             if board.isLocked(i):
                 continue
-            action = self.generate_lockable_action(i, board)
+            action = board.generate_lockable_action(i)
             if action is not None:
                 if board.exhausted:
                     board.change_piece(*action)
@@ -521,7 +526,7 @@ class PipeMania(Problem):
                 
                 ly = ln = 0
                 for k in board.direction_index_offset(0xF):
-                    rev_k1 = self.lshift(k[1], 4, 2)
+                    rev_k1 = board.lshift(k[1], 4, 2)
                     p = board.get_value(i + k[0])
                     if p is None or p & (0x80 | rev_k1) == 0x80:
                         ln |= k[1]
@@ -529,9 +534,9 @@ class PipeMania(Problem):
                         ly |= k[1]
                 
                 if piece_high != 0b0011_0000:
-                    a = self.lshift(piece_low, 4, 1)
-                    b = self.lshift(a, 4, 1)
-                    c = self.lshift(b, 4, 1)
+                    a = board.lshift(piece_low, 4, 1)
+                    b = board.lshift(a, 4, 1)
+                    c = board.lshift(b, 4, 1)
                     
                     p_a = 0x80 | piece_high | a
                     p_b = 0x80 | piece_high | b
@@ -547,7 +552,7 @@ class PipeMania(Problem):
                         actions.append((i, p_c))
                     return actions
                 else:
-                    a = self.lshift(piece_low, 4, 1)
+                    a = board.lshift(piece_low, 4, 1)
                     
                     p_a = 0x80 | piece_high | a
                     
@@ -581,37 +586,23 @@ class PipeMania(Problem):
         
         # Nao deteta se houverem varias subcomponentes
         board = state.board
-        for i, piece in enumerate(board.storage):
-            # left, right, up, down
-            adjs = board.adjacent_horizontal_values(i) + board.adjacent_vertical_values(i)
-            
-            p_left = piece & 0b0000_1000
-            p_up = piece & 0b0000_0100
-            p_right = piece & 0b0000_0010
-            p_down = piece & 0b0000_0001
-            
-            if p_left and (not adjs[0] or not adjs[0] & 0b0000_0010):
-                return False
-            if p_up and (not adjs[2] or not adjs[2] & 0b0000_0001):
-                return False
-            if p_right and (not adjs[1] or not adjs[1] & 0b0000_1000):
-                return False
-            if p_down and (not adjs[3] or not adjs[3] & 0b0000_0100):
+        visited = set()
+        queue = [int((board.size - 1) / 2)] # Starting search in the center of the board
+
+        while queue:
+            p = queue.pop()
+            visited.add(p)
+            if not board.isLocked(p):
                 return False
             
-        return True
+            queue.extend([p + n_offset[0] for n_offset in board.direction_index_offset(board.storage[p]) if (p + n_offset[0]) not in visited])
+
+        return True if len(visited) == board.size ** 2 else False
 
     def h(self, node: Node):
         """Função heuristica utilizada para a procura A*."""
         # TODO
         pass
-
-    def lshift(self, x, size, amount):
-        return ((x << amount) % (1 << size)) | (x >> (size - amount))
-    
-    def rshift(self, x, size, amount):
-        return ((x >> amount) | (x << (size - amount))) & ((1 << size) - 1)
-
 
 
 if __name__ == "__main__":
