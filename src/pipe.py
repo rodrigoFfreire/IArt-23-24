@@ -70,11 +70,6 @@ class PipeManiaState:
         self.last_index = last_index
         PipeManiaState.state_id += 1
 
-    def __lt__(self, other):
-        return self.id < other.id
-
-    # TODO: outros metodos da classe
-
 
 class Board:
     """Representação interna de um tabuleiro de PipeMania."""
@@ -106,7 +101,7 @@ class Board:
                 self.storage[index + 1] if (index + 1) % self.size != 0 else None
             )
 
-    def print(self) -> str:
+    def __str__(self) -> str:
         # Loops through storage and builds the output
         out = []
         for i, piece in enumerate(self.storage):
@@ -310,7 +305,6 @@ class Board:
                         return self.lockPiece(i, search_bad)
         
         return False
-            
                 
     def generate_lockable_action(self, i):
         piece = self.storage[i]
@@ -601,16 +595,10 @@ class PipeMania(Problem):
 
         return True if len(visited) == board.size ** 2 else False
 
-    def h(self, node: Node):
-        """Função heuristica utilizada para a procura A*."""
-        # TODO
-        pass
-
-
 if __name__ == "__main__":
     board = Board.parse_instance()
     
     problem = PipeMania(board)
     goal_node = depth_first_tree_search(problem)
     
-    print(goal_node.state.board.print())
+    print(goal_node.state.board)
