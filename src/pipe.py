@@ -2,10 +2,6 @@
 # Devem alterar as classes e funções neste ficheiro de acordo com as instruções do enunciado.
 # Além das funções e classes sugeridas, podem acrescentar outras que considerem pertinentes.
 
-# Grupo 119:
-# 1106485 Rodrigo Freire
-# 00000 Nome2
-
 import math
 
 from sys import stdin
@@ -243,11 +239,13 @@ class Board:
                 rev_k11 = self.invert_direction(k[1][1])
                 
                 if self.storage[i + k[0][0]] & (LOCK_MASK | rev_k01) == (LOCK_MASK | rev_k01) and \
-                    (self.storage[i + k[1][0]] & (LOCK_MASK | rev_k11) == (LOCK_MASK | rev_k11) or self.storage[i - k[1][0]] & (0x80 | k[1][1]) == 0x80):
+                    (self.storage[i + k[1][0]] & (LOCK_MASK | rev_k11) == (LOCK_MASK | rev_k11) or \
+                        self.storage[i - k[1][0]] & (0x80 | k[1][1]) == 0x80):
                         return self.lockPiece(i, search_bad)
                    
                 elif (self.storage[i + k[1][0]] & (LOCK_MASK | rev_k11) == (LOCK_MASK | rev_k11)) and \
-                    (self.storage[i + k[0][0]] & (LOCK_MASK | rev_k01) == (LOCK_MASK | rev_k01) or self.storage[i - k[0][0]] & (0x80 | k[0][1]) == 0x80):
+                    (self.storage[i + k[0][0]] & (LOCK_MASK | rev_k01) == (LOCK_MASK | rev_k01) or \
+                        self.storage[i - k[0][0]] & (0x80 | k[0][1]) == 0x80):
                        return self.lockPiece(i, search_bad)
                 elif self.storage[i - k[0][0]] & (LOCK_MASK | k[0][1]) == LOCK_MASK and \
                     self.storage[i - k[1][0]] & (LOCK_MASK | k[1][1]) == LOCK_MASK:
@@ -259,9 +257,12 @@ class Board:
                 
                 if self.storage[i + k[0][0]] & (LOCK_MASK | rev_k1_c) == (LOCK_MASK | rev_k1_c):
                     return self.lockPiece(i, search_bad)
-                elif (self.storage[i + non_k[0][0]] & PIECE_MASK == PIECE_F or self.storage[i + non_k[0][0]] & (LOCK_MASK | self.lshift(non_k[0][1], 4, 2)) == 0x80) and \
-                    (self.storage[i + non_k[1][0]] & PIECE_MASK == PIECE_F or self.storage[i + non_k[1][0]] & (LOCK_MASK | self.lshift(non_k[1][1], 4, 2)) == 0x80) and \
-                    (self.storage[i + non_k[2][0]] & PIECE_MASK == PIECE_F or self.storage[i + non_k[2][0]] & (LOCK_MASK | self.lshift(non_k[2][1], 4, 2)) == 0x80):
+                elif (self.storage[i + non_k[0][0]] & PIECE_MASK == PIECE_F or \
+                        self.storage[i + non_k[0][0]] & (LOCK_MASK | self.lshift(non_k[0][1], 4, 2)) == 0x80) and \
+                    (self.storage[i + non_k[1][0]] & PIECE_MASK == PIECE_F or \
+                        self.storage[i + non_k[1][0]] & (LOCK_MASK | self.lshift(non_k[1][1], 4, 2)) == 0x80) and \
+                    (self.storage[i + non_k[2][0]] & PIECE_MASK == PIECE_F or \
+                        self.storage[i + non_k[2][0]] & (LOCK_MASK | self.lshift(non_k[2][1], 4, 2)) == 0x80):
                         return self.lockPiece(i, search_bad)
             return False   
         # If a piece has ends facing the border then its definitely not lockable
@@ -595,7 +596,8 @@ class PipeMania(Problem):
             if not board.isLocked(p):
                 return False
             
-            queue.extend([p + n_offset[0] for n_offset in board.direction_index_offset(board.storage[p]) if (p + n_offset[0]) not in visited])
+            queue.extend([p + n_offset[0] for n_offset in board.direction_index_offset(board.storage[p]) \
+                if (p + n_offset[0]) not in visited])
 
         return True if len(visited) == board.size ** 2 else False
 
