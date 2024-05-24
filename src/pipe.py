@@ -11,8 +11,9 @@ from search import (
     depth_first_tree_search,
 )
 
-# High nibble stores lock bit (1st bit) and piece type (F -> 00, B -> 01, V -> 10, L -> 11) in the last 2 bits.
-# Low nibble stores open ends (0bXXXX_(Left)(Up)(Right)(Down) )
+# High nibble stores lock bit (1st bit) and piece type (F -> 00, B -> 01, V -> 10, L -> 11) in the 3rd and 4bits.
+# Low nibble stores the directions the pipes are facing in this order: (LEFT)(UP)(RIGHT)(DOWN)
+# Example: Unlocked VB piece -> 0b0010_0011 = 0x23 = 35
 piece_to_byte = {
     "FC": 0x4,
     "FB": 0x1,
@@ -62,6 +63,7 @@ PIECE_MASK = 0b0011_0000
 
 
 class PipeManiaState:
+    """Representação de um estado do PipeMania. Cada nó na procura guarda uma instância desta classe (estado)"""
     state_id = 0
 
     def __init__(self, board, last_index):
@@ -102,7 +104,7 @@ class Board:
             )
 
     def __str__(self) -> str:
-        # Loops through storage and builds the output
+        """Imprime o tabuleiro formatado em matriz"""
         out = []
         for i, piece in enumerate(self.storage):
             out.append(byte_to_piece[piece & 0x7F]) # Remove lock bit
@@ -114,23 +116,25 @@ class Board:
         return "".join(out)
     
     def copy(self):
+        """Cria uma cópia do tabuleiro"""
         return Board(self.size, self.storage.copy(), self.exhausted)
 
     def change_piece(self,index, new_piece):
+        """Aplica uma ação na posição indicada"""
         self.storage[index] = new_piece
 
     def lockPiece(self, index, search_bad):
+        """Bloqueia a peça na posição indicada"""
         if not search_bad:
             self.storage[index] |= 0x80
         return True
-    
-    def unlockPiece(self, index):
-        self.storage[index] ^ 0x80
         
     def isLocked(self, index):
+        """Verifica se a peça indicada está bloqueada"""
         return self.storage[index] & 0x80
         
     def getAdjacentPieces(self, index, piece):
+        """Retorna as peças adjacentes da indicada mas apenas nas direções onde a peça aponta"""
         h_adjs = self.adjacent_horizontal_values(index)
         v_adjs = self.adjacent_vertical_values(index)
         
@@ -147,6 +151,7 @@ class Board:
         return adjs
     
     def isCorner(self, i):
+        """Verifica se a posição indicada é um canto e devolve as direções onde há fronteiras"""
         if i == 0:
             return 0b1100
         elif i == self.size - 1:
@@ -158,6 +163,7 @@ class Board:
         return 0
     
     def isEdge(self, i):
+        """Verifica se a posição indicada é uma edge e devolve a direção da fronteira"""
         if i < self.size:
             return 0b0100
         elif i % self.size == 0:
@@ -169,37 +175,43 @@ class Board:
         return 0
     
     def direction_index_offset(self, facing):
+        """Devolve os offsets das peças adjacentes nas direções onde a peça aponta"""
         i = []
         if facing & 0x8:
-            i.append((-1, 0x8))
-        if facing & 0x4:
-            i.append((-self.size, 0x4))
+            i.append((-1, 0x8)) # i - 1 -> LEFT
+        if facing & 0x4: 
+            i.append((-self.size, 0x4)) # i - N -> UP
         if facing & 0x2:
-            i.append((1, 0x2))
+            i.append((1, 0x2)) # i + 1 -> RIGHT
         if facing & 0x1:
-            i.append((self.size, 0x1))
+            i.append((self.size, 0x1)) # i + N -> DOWN
         
         return i
         
     def lshift(self, x, size, amount):
+        """Operação circular left shift a `x`, `amount` vezes com tamanho `size` bits"""
         return ((x << amount) % (1 << size)) | (x >> (size - amount))
     
     def invert_direction(self, x):
+         """Inverte as direções dadas (numeros de 4bits apenas). LEFT -> RIGHT. UP -> DOWN"""
         return ((x << 2) % 16) | (x >> 2)
     
     def rshift(self, x, size, amount):
+         """Operação circular right shift a `x`, `amount` vezes com tamanho `size` bits"""
         return ((x >> amount) | (x << (size - amount))) & ((1 << size) - 1)
     
     def index_to_coords(self, index: int):
+        """Converte indice em coordenadas (row, col)"""
         return (index // self.size, index % self.size)
                         
     def isLockable(self, i, search_bad):
+        """Verifica se a peça na posição dada já se encontra na orientação correta e portanto pode ser bloqueada"""
         piece = self.storage[i]
         piece_high = piece & 0xF0
         piece_low = piece & 0xF
 
         row, col = self.index_to_coords(i)
-        if row > 0 and row < self.size - 1 and col > 0 and col < self.size - 1:
+        if row > 0 and row < self.size - 1 and col > 0 and col < self.size - 1: # Center of board
             if piece_high == PIECE_L:
                 k = self.direction_index_offset(piece_low)
                 rev_k = self.direction_index_offset(self.lshift(piece_low, 4, 1))
@@ -307,12 +319,13 @@ class Board:
         return False
                 
     def generate_lockable_action(self, i):
+        """Verifica se a peça na posição dada tem a única ação correta"""
         piece = self.storage[i]
         piece_high = piece & 0xF0
         piece_low = piece & 0xF
         
         row, col = self.index_to_coords(i)
-        if row > 0 and row < self.size - 1 and col > 0 and col < self.size - 1:
+        if row > 0 and row < self.size - 1 and col > 0 and col < self.size - 1: # Center of board
             if piece_high == 0b0011_0000: # L Piece
                 k1, k2 = self.direction_index_offset(piece_low)
                 rev_k1, rev_k2 = self.direction_index_offset(self.lshift(piece_low, 4, 1))
@@ -413,6 +426,7 @@ class Board:
             
                         
     def getAdjacentIndeces(self, i):
+        """Devolve os indices das peças adjacentes não bloqueadas."""
         h_adjs = self.adjacent_horizontal_values(i)
         v_adjs = self.adjacent_vertical_values(i)
         
@@ -425,6 +439,7 @@ class Board:
         return adjs
     
     def find_bad_locks(self, i):
+        """Verifica se as peças bloqueadas adjacentes não conectam com a peça dada após a ação. (Backtracking mais eficiente)"""
         piece = self.storage[i]
         piece_low = piece & 0xF
         for k in self.direction_index_offset(0xF):
@@ -439,6 +454,7 @@ class Board:
         
                         
     def find_locks(self, indeces: list, search_bad):
+        """Verifica iterativamente se as peças adjacentes podem ser bloqueadas como estão. E se sim então propagamos a procura para as próximas adjacentes."""
         min_i = self.size ** 2
         queue = indeces
         while queue:
@@ -478,6 +494,7 @@ class PipeMania(Problem):
         super().__init__(initial)
     
     def lockableAction(self, state: PipeManiaState):
+        """Procura no tabuleiro a primeira ação única. (Que conduz sempre ao estado resolvido)"""
         board = state.board
         
         last_index = state.last_index
@@ -508,7 +525,7 @@ class PipeMania(Problem):
         if lock_action == -1:
             return ()
         
-        if lock_action is None:
+        if lock_action is None: # Board is exhausted, every piece has >1 possible action
             board: Board = state.board
             actions = []
             board.exhausted = True
@@ -579,10 +596,12 @@ class PipeMania(Problem):
         um estado objetivo. Deve verificar se todas as posições do tabuleiro
         estão preenchidas de acordo com as regras do problema."""
         
-        # Nao deteta se houverem varias subcomponentes
         board = state.board
         visited = set()
-        queue = [int((board.size - 1) / 2)] # Starting search in the center of the board
+        
+        # We start the search in the center of the board, since the middle pieces tend to be last to get locked
+        # This improves the performance because it rejects unsolved states faster
+        queue = [int((board.size - 1) / 2)]
 
         while queue:
             p = queue.pop()
@@ -596,9 +615,9 @@ class PipeMania(Problem):
         return True if len(visited) == board.size ** 2 else False
 
 if __name__ == "__main__":
-    board = Board.parse_instance()
+    board = Board.parse_instance()               # Parse the board from stdin
     
-    problem = PipeMania(board)
-    goal_node = depth_first_tree_search(problem)
+    problem = PipeMania(board)                   # Create the initial node of the search
+    goal_node = depth_first_tree_search(problem) # Find the solution node
     
-    print(goal_node.state.board)
+    print(goal_node.state.board)                 # Print the solution
